@@ -383,3 +383,19 @@
   - Inserted new "## Slide 10 — Design Decisions & Tradeoffs" with 6-row two-column table (Decision + Chosen + Reasoning + Honest Tradeoff)
   - Renamed "## Slide 10 — GitHub & Submission" → "## Slide 11 — GitHub & Submission" (and matching heading)
 - Verified: 14/14 checks pass
+
+---
+
+## Turn 25 — 2026-05-31
+**Prompt:**
+> Add three new slides after Slide 9 (Vibe Coding): Slide 10 "AI Detection Roadmap" (current rule-based + Phase 2 Isolation Forest + Phase 3 Prophet/LSTM + Phase 4 LLM incident correlation), Slide 11 "GenAI Evaluation Strategy" (5-layer evaluation framework, golden dataset, hallucination tracking, feedback loop), Slide 12 "Enterprise Deployment Architecture" (Azure AKS, PostgreSQL, Azure OpenAI, Key Vault, Monitor). Renumber existing Slide 10 Design Decisions → 13 and Slide 11 GitHub → 14. Commit and push. Update prompts.md.
+
+**Actions taken:**
+- Wrote `build_slides.py` helper to reliably do string replacement on the markdown (avoids shell quoting issues with triple-backticks and special characters)
+- Renumbered: Slide 11 → 14 first, then Slide 10 → 13 (order matters to prevent double-replacement)
+- Inserted new Slide 10, 11, 12 before the Slide 13 separator
+- Slide 10 (AI Detection Roadmap): current state rationale + 4 phases (rules → Isolation Forest → Prophet/LSTM forecasting → LLM incident correlation), each with What/How/Integration point/Tradeoff
+- Slide 11 (GenAI Evaluation Strategy): 5-layer framework (fallback → category accuracy → RCA correctness scoring → hallucination tracking → feedback loop); golden dataset concept; automated regression test code example
+- Slide 12 (Enterprise Deployment Architecture): ASCII architecture diagram (AKS → PostgreSQL → Azure OpenAI → Key Vault/Monitor/ACR); Why Azure OpenAI over Groq table (6 criteria); SQLite→PostgreSQL migration checklist (5 items); Operational additions table
+- Deleted `build_slides.py` (temp helper, not committed)
+- Verified: 14 slides, sequential 1-14, 15/15 content checks pass

@@ -439,9 +439,200 @@ Scrubbed all `gsk_*` patterns from every commit. Deleted `refs/original`, expire
 - **Automatic audit trail** — every decision recorded in `prompts.md` with exact prompts
 - **No context switching** — bugs are diagnosed and fixed in the same turn they're found
 
+## Slide 10 — AI Detection Roadmap
+
+# AI Detection Roadmap: From Rules to Intelligence
+
+_Rule-based detection was a deliberate choice. Here is the path to intelligence._
+
 ---
 
-## Slide 10 — Design Decisions & Tradeoffs
+### Current State: Rule-Based Detection (Deliberate)
+
+Statistical thresholds were chosen for **auditability and operational trust**:
+- Every alert trigger is explainable in one sentence
+- Every threshold is visible in the `anomaly_logs` table
+- Zero training data required — works on day one
+- Engineers can tune thresholds via env vars without touching code
+
+This is not a limitation — it is the correct starting point. You earn trust before you add complexity.
+
+---
+
+### Phase 2 — Isolation Forest (Unsupervised Anomaly Detection)
+
+**What it adds:** Detects multivariate anomalies — e.g. a service where CPU is normal, latency is normal, but their *combination* is unusual.
+
+**How:** Train an Isolation Forest on rolling 7-day windows of `(window_count, error_rate, avg_value)` per source. Flag points with anomaly score below threshold.
+
+**Integration point:** Third rule in `services/anomaly.py` alongside spike + flood. `AnomalyLog` already captures the features needed.
+
+**Tradeoff:** Requires 1–2 weeks of historical data per source. Cold-start problem.
+
+---
+
+### Phase 3 — Time-Series Forecasting (Seasonal Pattern Detection)
+
+**What it adds:** Detects gradual degradation and seasonal anomalies — e.g. a service that always spikes at 09:00 on Mondays but is 30% higher than usual this week.
+
+**How:** Prophet or a lightweight LSTM trained per source on hourly event counts. Alert when actual count diverges from forecast by more than N standard deviations.
+
+**Integration point:** New daily APScheduler job for retraining. `forecasts` table. Detection rule compares current window against forecast band.
+
+**Tradeoff:** Requires weeks of clean data; adds a data science dependency to the operations stack.
+
+---
+
+### Phase 4 — LLM-Assisted Incident Correlation
+
+**What it adds:** Correlates alerts across multiple services — `db-proxy` spike + `payment-service` spike + `auth-service` timeout all firing within 60 seconds likely share a root cause.
+
+**How:** Group co-occurring alerts within a 2-minute window. Feed the group to the LLM with a correlation prompt. Produce a single "incident" record linking the individual alerts.
+
+**Integration point:** New `incidents` table. `GET /incidents/` endpoint. Dashboard incident timeline panel.
+
+**Tradeoff:** LLM correlation quality depends on alert message quality. Requires incident feedback loop to improve over time.
+
+---
+
+## Slide 11 — GenAI Evaluation Strategy
+
+# GenAI Evaluation Strategy: Measuring RCA Quality
+
+_You cannot improve what you cannot measure. Here is how LLM quality would be tracked in production._
+
+---
+
+### The Problem
+
+The current system has one quality gate: graceful fallback. This is necessary but not sufficient. A hallucinated-but-confident analysis can mislead an on-call engineer.
+
+---
+
+### Evaluation Framework
+
+**Layer 1 — Graceful Fallback (already implemented)**
+- Invalid JSON or API failure: `NULL` analysis, alert fires normally
+- Ensures zero crashes. Does not measure quality.
+
+**Layer 2 — Category Accuracy Validation**
+- Inject 10 synthetic events per category nightly; verify correct category returned
+- Alert if accuracy drops below 90%
+
+**Layer 3 — RCA Correctness Scoring**
+- Golden incident dataset: 50 real incidents with human-written root cause labels
+- Score LLM responses with ROUGE-L or LLM-as-judge on each model version
+- Block model upgrades that regress below threshold
+
+**Layer 4 — Hallucination Rate Tracking**
+- Flag references to services not in the event log, fabricated version numbers
+- Manual review of random 5% sample weekly; target <2% hallucination rate
+
+**Layer 5 — Engineer Feedback Loop**
+- 👍 / 👎 button per LLM analysis on `/ui/alerts`
+- Store feedback in `llm_feedback` table
+- Weekly report: upvote rate per category; downvotes feed the golden dataset
+
+---
+
+### Automated Regression Testing (Production Addition)
+
+```python
+# tests/test_llm_quality.py
+GOLDEN_CASES = [
+    {"events": [...db errors...],    "expected_category": "Database",        "keywords": ["pool", "connection"]},
+    {"events": [...ssl failures...], "expected_category": "Network",         "keywords": ["handshake", "TLS"]},
+    {"events": [...oom kills...],    "expected_category": "Memory/Resource", "keywords": ["heap", "OOM"]},
+]
+# Run weekly in CI against live API — not on every PR
+```
+
+---
+
+## Slide 12 — Enterprise Deployment Architecture
+
+# Enterprise Deployment Architecture
+
+_How this moves from SQLite on a laptop to production on Azure._
+
+---
+
+### Target Architecture: Azure-Native
+
+```
+Internet ──> Azure App Gateway
+                    |
+         ┌──────────────────────┐
+         │  Azure Kubernetes    │
+         │  ┌────────────────┐  │
+         │  │ Watchdog Pod   │  │
+         │  │ FastAPI × 2   │  │
+         │  ├────────────────┤  │
+         │  │ Worker Pod × 1 │  │
+         │  │ APScheduler    │  │
+         │  └────────┬───────┘  │
+         └───────────│──────────┘
+                     │
+         ┌───────────▼──────────┐
+         │ Azure PostgreSQL     │
+         │ Flexible Server      │
+         └───────────┬──────────┘
+                     │
+         ┌───────────▼──────────┐
+         │  Azure OpenAI Service │
+         │  Private Endpoint    │
+         │  VNet-injected       │
+         └──────────────────────┘
+                     │
+    ┌────────────────┼──────────────┐
+    ▼                ▼              ▼
+Azure Key Vault  Azure Monitor   Azure Container
+(secrets)        (App Insights,  Registry
+                  Teams alerts)  (CI/CD)
+```
+
+---
+
+### Why Azure OpenAI over Groq in Production
+
+| Criterion | Groq (current) | Azure OpenAI (production) |
+|---|---|---|
+| **SLA** | None (free tier) | 99.9% uptime SLA |
+| **Data residency** | US only | Region-selectable (India, EU, US) |
+| **Compliance** | Not enterprise-grade | ISO 27001, SOC 2, GDPR |
+| **Private networking** | No | VNet injection + Private Endpoint |
+| **Existing client stack** | N/A | Typically already licensed |
+| **Latency** | ~100 ms | ~200–400 ms (acceptable) |
+
+**The code change is ~5 lines in `services/llm_analyzer.py`** — swap `groq.Groq` for the Azure OpenAI client, update the model name. Everything else (prompt, parsing, fallback) stays identical.
+
+---
+
+### SQLite → PostgreSQL Migration Checklist
+
+- [ ] Set `DB_URL=postgresql+psycopg2://user:pass@host/watchdog` in Key Vault
+- [ ] Run `alembic upgrade head` to apply schema migrations
+- [ ] Replace `func.strftime(...)` with `date_trunc('hour', timestamp)` in hourly queries
+- [ ] Remove `func.datetime()` sort workaround — PostgreSQL sorts native timestamps correctly
+- [ ] Update `connect_args`: remove `check_same_thread`, add connection pool settings
+
+---
+
+### Operational Additions for Enterprise
+
+| Component | Tool | Purpose |
+|---|---|---|
+| Secrets | Azure Key Vault | Rotate keys without redeployment |
+| Observability | Azure Monitor + App Insights | Trace every request, 5xx alerting |
+| CI/CD | GitHub Actions → ACR → AKS | Build, scan, deploy on every merge |
+| Auth | Azure AD / Entra ID | SSO for dashboard; service principals for API |
+| Data retention | PostgreSQL PITR | Point-in-time recovery, 35-day window |
+
+---
+
+---
+
+## Slide 13 — Design Decisions & Tradeoffs
 
 # Design Decisions & Tradeoffs
 
@@ -458,7 +649,7 @@ _Every decision is a bet. Here are the six bets made — and what they cost._
 
 ---
 
-## Slide 11 — GitHub & Submission
+## Slide 14 — GitHub & Submission
 
 # GitHub & Submission
 
