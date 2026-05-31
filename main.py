@@ -93,6 +93,21 @@ def dashboard(request: Request):
             select(Event).order_by(desc(Event.timestamp)).limit(20)
         ).scalars().all()
 
+        # Root cause distribution for pie chart
+        from services.llm_analyzer import VALID_CATEGORIES
+        cat_rows = db.execute(
+            select(Alert.root_cause_category, func.count().label("cnt"))
+            .group_by(Alert.root_cause_category)
+        ).all()
+        cat_map: dict[str, int] = {c: 0 for c in sorted(VALID_CATEGORIES)}
+        for cat, cnt in cat_rows:
+            key = cat if cat in VALID_CATEGORIES else "Unknown"
+            cat_map[key] = cat_map.get(key, 0) + cnt
+        rca_data = {
+            "labels": list(cat_map.keys()),
+            "values": list(cat_map.values()),
+        }
+
         return templates.TemplateResponse(
             "dashboard.html",
             {
@@ -106,6 +121,7 @@ def dashboard(request: Request):
                 },
                 "level_data": level_data,
                 "time_data": time_data,
+                "rca_data": rca_data,
                 "recent_alerts": recent_alerts,
                 "recent_events": recent_events,
             },

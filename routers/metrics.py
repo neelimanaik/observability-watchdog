@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models.metric import Metric
+from models.alert import Alert
+from services.llm_analyzer import VALID_CATEGORIES
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 
@@ -43,3 +45,18 @@ def list_metrics(
         )
         for r in rows
     ]
+
+
+@router.get("/root-cause-distribution")
+def root_cause_distribution(db: Session = Depends(get_db)) -> dict[str, int]:
+    """Returns count of alerts per root_cause_category across all alerts."""
+    rows = db.execute(
+        select(Alert.root_cause_category, func.count().label("cnt"))
+        .group_by(Alert.root_cause_category)
+    ).all()
+    # Seed all valid categories with 0, then fill from DB
+    dist: dict[str, int] = {cat: 0 for cat in sorted(VALID_CATEGORIES)}
+    for category, count in rows:
+        key = category if category in VALID_CATEGORIES else "Unknown"
+        dist[key] = dist.get(key, 0) + count
+    return dist

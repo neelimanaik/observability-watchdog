@@ -60,6 +60,7 @@ def _create_alert(
     message: str,
     severity: str,
     llm_analysis: str | None = None,
+    root_cause_category: str | None = None,
 ) -> Alert:
     alert = Alert(
         rule=rule,
@@ -67,6 +68,7 @@ def _create_alert(
         message=message,
         severity=severity,
         llm_analysis=llm_analysis,
+        root_cause_category=root_cause_category,
         suppression_count=0,
     )
     db.add(alert)
@@ -88,8 +90,8 @@ def _handle_rule(
     if existing:
         _suppress_alert(db, existing)
     else:
-        analysis = analyse_alert(db, source, message, rule)
-        created.append(_create_alert(db, rule, source, message, severity, analysis))
+        analysis, category = analyse_alert(db, source, message, rule)
+        created.append(_create_alert(db, rule, source, message, severity, analysis, category))
 
 
 def detect_anomalies(db: Session) -> list[Alert]:

@@ -3,12 +3,13 @@
 <div class="card">
   <h2>Alerts</h2>
   <table>
-    <thead><tr><th>#</th><th>Severity</th><th>Rule</th><th>Source</th><th>Message</th><th>AI Analysis</th><th>Suppressed</th><th>Status</th><th>Created</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>Severity</th><th>Category</th><th>Rule</th><th>Source</th><th>Message</th><th>AI Analysis</th><th>Suppressed</th><th>Status</th><th>Created</th><th></th></tr></thead>
     <tbody>
     {% for a in alerts %}
     <tr id="alert-row-{{ a.id }}">
       <td>{{ a.id }}</td>
       <td><span class="badge badge-{{ a.severity }}">{{ a.severity }}</span></td>
+      <td>{% if a.root_cause_category %}<span class="badge badge-cat-{{ a.root_cause_category | replace('/','-') | lower | replace(' ','-') }}">{{ a.root_cause_category }}</span>{% else %}<span style="color:#475569;font-size:.75rem">&mdash;</span>{% endif %}</td>
       <td>{{ a.rule }}</td>
       <td>{{ a.source }}</td>
       <td style="max-width:200px">{{ a.message }}</td>
@@ -39,7 +40,7 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="10" style="color:#64748b;text-align:center">No alerts</td></tr>
+    <tr><td colspan="11" style="color:#64748b;text-align:center">No alerts</td></tr>
     {% endfor %}
     </tbody>
   </table>

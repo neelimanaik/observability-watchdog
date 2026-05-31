@@ -101,3 +101,32 @@
   - acknowledged alert does not block new one
 - Restarted server to pick up model/router changes
 - **Result: 41/41 tests pass** (37.55s); all three UI pages return 200; suppression_count in API response
+
+---
+
+## Turn 10 — 2026-05-31
+**Prompt:**
+> Two enhancements: 1) Root cause categorisation — update LLM prompt to return JSON {category, analysis}, add root_cause_category column, store it, display as coloured badge. 2) Root Cause Distribution pie chart + GET /metrics/root-cause-distribution endpoint. 3) Seed 15 demo alerts across all 6 categories. 4) Fix suppression count visibility — trigger two rapid spikes so suppression_count > 0 on dashboard. Run tests, fix failures, commit and push. Update prompts.md.
+
+**Actions taken:**
+- `models/alert.py`: added `root_cause_category: String(64) nullable`
+- SQLite migration: `ALTER TABLE alerts ADD COLUMN root_cause_category TEXT`
+- `services/llm_analyzer.py` rewritten:
+  - JSON-mode system prompt (category + analysis fields, list of 6 valid categories)
+  - `_parse_llm_response()`: strips markdown fences, parses JSON, normalises invalid categories to "Unknown", falls back plain-text to ("text", "Unknown")
+  - `analyse_alert()` now returns `(analysis: str | None, category: str | None)` tuple
+  - Exported `VALID_CATEGORIES` set
+- `services/anomaly.py`: `_create_alert()` + `_handle_rule()` updated to accept/unpack category
+- `routers/alerts.py`: `root_cause_category` added to `AlertOut` and `_to_out()`
+- `routers/metrics.py`: new `GET /metrics/root-cause-distribution` endpoint — counts alerts per category, seeds all 6 with 0
+- `main.py`: dashboard route computes `rca_data` dict from alert table, passes to template
+- `templates/base.html`: `grid-3` CSS class + 6 `badge-cat-*` colour rules
+- `templates/dashboard.html`: Category column in alerts table, RCA pie chart in grid-3 layout with per-category colours
+- `templates/alerts.html`: Category column added, colspan updated to 11
+- Seeded 15 demo alerts (3 Database, 3 Network, 2 Auth, 3 Memory/Resource, 2 Application, 2 Unknown) directly to SQLite
+- Triggered suppression: injected 15 events × 2 cycles on api-gateway → suppression_count=1 confirmed on live alert
+- Fixed 7 test failures caused by `analyse_alert` return type change (str → tuple):
+  - `test_llm_analyser.py`: all assertions updated to unpack tuple; added 4 new tests (invalid category, plain text fallback, all valid categories, JSON prompt instruction)
+  - `test_suppression.py`: mock return_value changed to `("mock analysis", "Application")`
+- **Result: 45/45 tests pass** (27.89s)
+- Verified: all 4 endpoints 200; `GET /metrics/root-cause-distribution` returns all 6 categories

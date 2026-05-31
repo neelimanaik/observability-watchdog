@@ -19,7 +19,7 @@
   </div>
 </div>
 
-<div class="grid-2 gap">
+<div class="grid-3 gap">
   <div class="card">
     <h2>Events by Level (24h)</h2>
     <canvas id="levelChart"></canvas>
@@ -28,16 +28,21 @@
     <h2>Event Volume Over Time</h2>
     <canvas id="timeChart"></canvas>
   </div>
+  <div class="card">
+    <h2>Root Cause Distribution</h2>
+    <canvas id="rcaChart"></canvas>
+  </div>
 </div>
 
 <div class="card gap">
   <h2>Recent Alerts</h2>
   <table>
-    <thead><tr><th>Severity</th><th>Rule</th><th>Source</th><th>Message</th><th>AI Analysis</th><th>Suppressed</th><th>Time</th><th></th></tr></thead>
+    <thead><tr><th>Severity</th><th>Category</th><th>Rule</th><th>Source</th><th>Message</th><th>AI Analysis</th><th>Suppressed</th><th>Time</th><th></th></tr></thead>
     <tbody>
     {% for a in recent_alerts %}
     <tr id="alert-row-{{ a.id }}">
       <td><span class="badge badge-{{ a.severity }}">{{ a.severity }}</span></td>
+      <td>{% if a.root_cause_category %}<span class="badge badge-cat-{{ a.root_cause_category | replace("/","-") | lower | replace(" ","-") }}">{{ a.root_cause_category }}</span>{% else %}<span style="color:#475569;font-size:.75rem">&mdash;</span>{% endif %}</td>
       <td>{{ a.rule }}</td>
       <td>{{ a.source }}</td>
       <td style="max-width:200px">{{ a.message }}</td>
@@ -65,7 +70,7 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="8" style="color:#64748b;text-align:center">No alerts yet</td></tr>
+    <tr><td colspan="9" style="color:#64748b;text-align:center">No alerts yet</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -116,6 +121,28 @@ new Chart(document.getElementById("timeChart"), {
       y: { ticks: { color: "#64748b" }, grid: { color: "#334155" }, beginAtZero: true }
     },
     plugins: { legend: { labels: { color: "#cbd5e1" } } }
+  }
+});
+
+const rcaData = {{ rca_data | tojson }};
+const rcaColors = {
+  "Application":    "#22c55e",
+  "Authentication": "#7c3aed",
+  "Database":       "#0ea5e9",
+  "Memory/Resource":"#ef4444",
+  "Network":        "#f59e0b",
+  "Unknown":        "#64748b"
+};
+new Chart(document.getElementById("rcaChart"), {
+  type: "pie",
+  data: {
+    labels: rcaData.labels,
+    datasets: [{ data: rcaData.values, backgroundColor: rcaData.labels.map(l => rcaColors[l] || "#64748b") }]
+  },
+  options: {
+    plugins: {
+      legend: { position: "bottom", labels: { color: "#cbd5e1", boxWidth: 12, padding: 8 } }
+    }
   }
 });
 </script>

@@ -59,7 +59,7 @@ class TestAlertSuppression:
         _seed_spike_events(db_session, "ml-pipeline")
 
         with patch("services.anomaly.analyse_alert") as mock_llm:
-            mock_llm.return_value = "mock analysis"
+            mock_llm.return_value = ("mock analysis", "Application")
             detect_anomalies(db_session)   # creates → LLM called once
             detect_anomalies(db_session)   # suppressed → LLM must NOT be called again
 
