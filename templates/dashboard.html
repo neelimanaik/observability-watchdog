@@ -53,7 +53,7 @@
       {% for a in recent_alerts %}
       <tr id="alert-row-{{ a.id }}">
         <td><span class="badge badge-{{ a.severity }}">{{ a.severity }}</span></td>
-        <td>{% if a.root_cause_category %}<span class="badge badge-cat-{{ a.root_cause_category | replace("/","-") | lower | replace(" ","-") }}">{{ a.root_cause_category }}</span>{% else %}<span style="color:#475569;font-size:.75rem">&mdash;</span>{% endif %}</td>
+        <td><span class="badge badge-cat-{{ (a.root_cause_category or 'Unknown') | replace('/','-') | lower | replace(' ','-') }}">{{ a.root_cause_category or 'Unknown' }}</span></td>
         <td>{{ a.rule }}</td>
         <td>{{ a.source }}</td>
         <td style="max-width:160px;font-size:.8rem">{{ a.message[:80] }}</td>

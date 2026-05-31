@@ -243,3 +243,14 @@
 **Fix:** `e.timestamp.strftime("%Y-%m-%d %H:%M:%S")` → `e.timestamp | to_ist` in `templates/events.html:26`. Also added `white-space:nowrap` to prevent the "IST" suffix wrapping.
 
 **Verified:** `/ui/events` returns 200; 200 IST timestamps found (sample: 2026-05-31 18:36:18 IST); 0 raw UTC timestamps remaining.
+
+---
+
+## Turn 16 — 2026-05-31
+**Prompt:**
+> In the alerts page and dashboard, replace the "&mdash;" placeholder for missing root_cause_category with the text "Unknown" styled with the same grey badge used for the Unknown category. Applies wherever category is None or empty. Commit and push. Update prompts.md.
+
+**Fix:** Collapsed the `{% if a.root_cause_category %}...{% else %}&mdash;{% endif %}` block in both templates to a single expression using the `or` operator:
+`{{ (a.root_cause_category or "Unknown") | replace(...) | lower | replace(...) }}` for the CSS class and `{{ a.root_cause_category or "Unknown" }}` for the text. The `badge-cat-unknown` CSS class (grey #475569) is already defined in `base.html`.
+
+**Verified:** 25 category badge cells on /ui/alerts — all use `badge-cat-*`; 3 render as `badge-cat-unknown` (previously None); 0 dashes in category position.
