@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid-4 gap">
+  <div class="card stat-card">
+    <div class="num" style="color:#38bdf8">{{ stats.total }}</div>
+    <div class="label">Total Events (24h)</div>
+  </div>
+  <div class="card stat-card">
+    <div class="num" style="color:#ef4444">{{ stats.errors }}</div>
+    <div class="label">Errors &amp; Criticals (24h)</div>
+  </div>
+  <div class="card stat-card">
+    <div class="num" style="color:#f59e0b">{{ stats.open_alerts }}</div>
+    <div class="label">Open Alerts</div>
+  </div>
+  <div class="card stat-card">
+    <div class="num" style="color:#22c55e">{{ stats.sources }}</div>
+    <div class="label">Active Sources</div>
+  </div>
+</div>
+
+<div class="grid-2 gap">
+  <div class="card">
+    <h2>Events by Level (24h)</h2>
+    <canvas id="levelChart"></canvas>
+  </div>
+  <div class="card">
+    <h2>Event Volume Over Time</h2>
+    <canvas id="timeChart"></canvas>
+  </div>
+</div>
+
+<div class="card gap">
+  <h2>Recent Alerts</h2>
+  <table>
+    <thead><tr><th>Severity</th><th>Rule</th><th>Source</th><th>Message</th><th>Time</th><th></th></tr></thead>
+    <tbody>
+    {% for a in recent_alerts %}
+    <tr id="alert-row-{{ a.id }}">
+      <td><span class="badge badge-{{ a.severity }}">{{ a.severity }}</span></td>
+      <td>{{ a.rule }}</td>
+      <td>{{ a.source }}</td>
+      <td>{{ a.message }}</td>
+      <td>{{ a.created_at[:19].replace("T"," ") }}</td>
+      <td>
+        {% if not a.acknowledged %}
+        <button class="btn-ack"
+          hx-patch="/alerts/{{ a.id }}/acknowledge"
+          hx-target="#alert-row-{{ a.id }}"
+          hx-swap="outerHTML">Ack</button>
+        {% else %}
+        <span style="color:#22c55e;font-size:.8rem">✓ ack'd</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" style="color:#64748b;text-align:center">No alerts yet</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card gap">
+  <h2>Recent Events</h2>
+  <table>
+    <thead><tr><th>Level</th><th>Source</th><th>Message</th><th>Value</th><th>Time</th></tr></thead>
+    <tbody>
+    {% for e in recent_events %}
+    <tr>
+      <td><span class="badge badge-{{ e.level }}">{{ e.level }}</span></td>
+      <td>{{ e.source }}</td>
+      <td>{{ e.message[:120] }}</td>
+      <td>{{ e.value if e.value is not none else "—" }}</td>
+      <td>{{ e.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" style="color:#64748b;text-align:center">No events yet — POST to /events to start</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+const levelData = {{ level_data | tojson }};
+new Chart(document.getElementById("levelChart"), {
+  type: "doughnut",
+  data: {
+    labels: levelData.labels,
+    datasets: [{ data: levelData.values, backgroundColor: ["#0ea5e9","#f59e0b","#ef4444","#7c3aed"] }]
+  },
+  options: { plugins: { legend: { labels: { color: "#cbd5e1" } } } }
+});
+
+const timeData = {{ time_data | tojson }};
+new Chart(document.getElementById("timeChart"), {
+  type: "line",
+  data: {
+    labels: timeData.labels,
+    datasets: [{ label: "Events", data: timeData.values, borderColor: "#38bdf8", fill: true,
+      backgroundColor: "rgba(56,189,248,.15)", tension: .3 }]
+  },
+  options: {
+    scales: {
+      x: { ticks: { color: "#64748b", maxTicksLimit: 8 }, grid: { color: "#1e293b" } },
+      y: { ticks: { color: "#64748b" }, grid: { color: "#334155" }, beginAtZero: true }
+    },
+    plugins: { legend: { labels: { color: "#cbd5e1" } } }
+  }
+});
+</script>
+{% endblock %}
