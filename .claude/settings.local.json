@@ -20,7 +20,21 @@
       "Bash(python -c \"import sys,json; a=json.load\\(sys.stdin\\); print\\('Count:', len\\(a\\)\\); print\\('Keys:', list\\(a[0].keys\\(\\)\\) if a else 'none'\\)\")",
       "mcp__Claude_Preview__preview_start",
       "mcp__Claude_in_Chrome__tabs_context_mcp",
-      "Bash(python -m pytest tests/ -v)"
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(git filter-branch --force --tree-filter 'python -c \" *)",
+      "Bash(git stash *)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --tree-filter 'python -c \" *)",
+      "Bash(xargs -I{} git update-ref -d {})",
+      "Bash(git reflog *)",
+      "Bash(git gc *)",
+      "Bash(cat .git/ORIG_HEAD)",
+      "Bash(ls .git/refs/ -la)",
+      "Bash(cat .git/packed-refs)",
+      "Bash(rm -rf .git/refs/original)",
+      "Bash(rm -f .git/ORIG_HEAD)",
+      "Bash(git count-objects *)"
     ]
   }
 }
