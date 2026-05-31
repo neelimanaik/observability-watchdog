@@ -156,3 +156,34 @@
 
 **Verified:** 7/7 dashboard checks pass; /health returns 200 with correct JSON; /ui/alerts 200
 **Tests:** 45/45 still passing (no new tests this turn — all features are UI/API layer)
+
+---
+
+## Turn 12 — 2026-05-31
+**Prompt:**
+> Six improvements: 1) Line chart Y-axis labels and improved tooltips. 2) Fix RCA legend alignment. 3) New Trends line chart (Errors/Warnings/Total, last 24h) + GET /metrics/trends. 4) Anomaly Detection Log table + GET /metrics/anomaly-log. 5) Check/create scripts/generate_logs.py with --spike flag. 6) Webhook: update .env placeholder + README instructions + payload structure. Run all tests, commit and push. Update prompts.md.
+
+**Actions taken:**
+- `models/anomaly_log.py`: new `AnomalyLog` model (checked_at, source, window_count, error_count, threshold, is_anomaly)
+- `database.py`: registered `anomaly_log` in `init_db()` imports
+- SQLite: `anomaly_logs` table created via `init_db()`
+- `services/anomaly.py`: writes one `AnomalyLog` row per source per detection cycle (with error_count, threshold, fired status)
+- `routers/metrics.py`:
+  - `GET /metrics/trends` — hourly buckets for total/errors/warnings last 24h
+  - `GET /metrics/anomaly-log` — last N detection log entries with error_rate computed
+- `main.py`: dashboard route computes `trends_data` and `anomaly_log_entries` from DB; both passed to template
+- `templates/dashboard.html` full rewrite:
+  - Shared `commonScales` object reused across line charts
+  - `timeChart`: `interaction.mode="index"`, custom tooltip callbacks, pointRadius
+  - `rcaChart`: monospace legend font for alignment, padding=10
+  - New `trendsChart`: 3-dataset line chart (Total/Errors/Warnings), full-width card
+  - New "Anomaly Detection Log" table alongside Recent Alerts in grid-2 layout
+  - All existing features preserved (datalabels, auto-refresh, last-updated)
+- `scripts/generate_logs.py`: created — continuous realistic event streamer with argparse
+  - `--spike`: sends 20 rapid errors to trigger anomaly, then exits
+  - `--host`, `--interval`, `--source` options
+  - Realistic LEVEL_WEIGHTS (info:60, warn:22, error:14, critical:4)
+- `.env`: ALERT_WEBHOOK_URL updated to `https://webhook.site/your-unique-id-here` placeholder
+- `README.md`: added "Live Traffic Simulation" section + "Webhook Alerts" section with payload structure
+- Seeded anomaly_logs table with a detection cycle
+- **Tests: 45/45 pass** (48.75s — no regressions from new model/service changes)

@@ -15,6 +15,7 @@ from config import settings
 from models.event import Event
 from models.alert import Alert
 from models.metric import Metric
+from models.anomaly_log import AnomalyLog
 from services.llm_analyzer import analyse_alert
 
 SUPPRESSION_WINDOW_MINUTES = 10
@@ -140,6 +141,38 @@ def detect_anomalies(db: Session) -> list[Alert]:
                 f"in {settings.anomaly_window_minutes}m"
             )
             _handle_rule(db, "critical_flood", source, msg, "critical", created)
+
+    # ── Anomaly log entries (one per source per cycle) ────────────────────────
+    now_ts = datetime.now(timezone.utc)
+    for source, current_count in current_rows:
+        error_count = db.scalar(
+            select(func.count()).where(
+                Event.source == source,
+                Event.level.in_(["error", "critical"]),
+                Event.timestamp >= window_start,
+                Event.timestamp < window_end,
+            )
+        ) or 0
+        baseline_count = db.scalar(
+            select(func.count()).where(
+                Event.source == source,
+                Event.timestamp >= baseline_start,
+                Event.timestamp < baseline_end,
+            )
+        ) or 0
+        baseline_per_window = baseline_count / 6 if baseline_count else 0
+        threshold = max(baseline_per_window * settings.anomaly_spike_multiplier, 10)
+        fired = any(
+            a.source == source for a in created
+        )
+        db.add(AnomalyLog(
+            checked_at=now_ts,
+            source=source,
+            window_count=current_count,
+            error_count=error_count,
+            threshold=round(threshold, 1),
+            is_anomaly=fired,
+        ))
 
     for source, current_count in current_rows:
         avg_val = db.scalar(

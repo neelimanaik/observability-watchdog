@@ -137,6 +137,50 @@ def dashboard(request: Request):
             "values": list(cat_map.values()),
         }
 
+        # Trends: hourly error / warning / total for the last 24h
+        from models.event import Event as _Ev
+        def _hourly_map(extra=None):
+            q = (
+                select(
+                    func.strftime("%H:00", func.datetime(_Ev.timestamp, "localtime")).label("hr"),
+                    func.count().label("cnt"),
+                )
+                .where(_Ev.timestamp >= since_24h)
+                .group_by("hr").order_by("hr")
+            )
+            if extra is not None:
+                q = q.where(extra)
+            return {r.hr: r.cnt for r in db.execute(q).all()}
+
+        total_map   = _hourly_map()
+        error_map   = _hourly_map(_Ev.level.in_(["error", "critical"]))
+        warning_map = _hourly_map(_Ev.level == "warn")
+        trend_hours = sorted(total_map.keys())
+        trends_data = {
+            "labels":   trend_hours,
+            "total":    [total_map.get(h, 0)   for h in trend_hours],
+            "errors":   [error_map.get(h, 0)   for h in trend_hours],
+            "warnings": [warning_map.get(h, 0) for h in trend_hours],
+        }
+
+        # Anomaly detection log — last 10 entries
+        from models.anomaly_log import AnomalyLog
+        log_rows = db.execute(
+            select(AnomalyLog).order_by(desc(AnomalyLog.checked_at)).limit(10)
+        ).scalars().all()
+        anomaly_log_entries = [
+            {
+                "time": r.checked_at.strftime("%H:%M:%S"),
+                "source": r.source,
+                "window_count": r.window_count,
+                "error_count": r.error_count,
+                "error_rate": round(r.error_count / r.window_count * 100, 1) if r.window_count else 0,
+                "threshold": r.threshold,
+                "status": "Anomaly" if r.is_anomaly else "Normal",
+            }
+            for r in log_rows
+        ]
+
         return templates.TemplateResponse(
             "dashboard.html",
             {
@@ -151,6 +195,8 @@ def dashboard(request: Request):
                 "level_data": level_data,
                 "time_data": time_data,
                 "rca_data": rca_data,
+                "trends_data": trends_data,
+                "anomaly_log": anomaly_log_entries,
                 "recent_alerts": recent_alerts,
                 "recent_events": recent_events,
             },

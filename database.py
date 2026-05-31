@@ -23,5 +23,5 @@ def get_db():
 
 
 def init_db():
-    from models import event, alert, metric  # noqa: F401 — register models
+    from models import event, alert, metric, anomaly_log  # noqa: F401 — register models
     Base.metadata.create_all(bind=engine)

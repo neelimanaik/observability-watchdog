@@ -313,3 +313,50 @@ observability-watchdog/
 ## License
 
 MIT
+
+
+---
+
+## Live Traffic Simulation
+
+`scripts/generate_logs.py` streams realistic events to the watchdog API to simulate live traffic and trigger anomaly detection.
+
+```bash
+# Stream continuous realistic events (Ctrl-C to stop)
+python scripts/generate_logs.py
+
+# Send a spike of 20 consecutive errors to trigger an alert immediately
+python scripts/generate_logs.py --spike
+
+# Options
+python scripts/generate_logs.py --help
+#   --spike           Send burst then exit
+#   --host URL        API base URL (default: http://localhost:8000)
+#   --interval SECS   Delay between events (default: 0.5)
+#   --source SVC      Fix the source service name
+```
+
+---
+
+## Webhook Alerts
+
+Set `ALERT_WEBHOOK_URL` in `.env` to receive a POST payload whenever an alert fires.
+
+**Get a free test URL:**
+1. Go to [https://webhook.site](https://webhook.site)
+2. Copy your unique URL (e.g. `https://webhook.site/abc-123-...`)
+3. Paste it in `.env`:
+
+```ini
+ALERT_WEBHOOK_URL=https://webhook.site/your-unique-id-here
+```
+
+The next anomaly cycle (within 60 s) will POST a payload like:
+
+```json
+{
+  "text": "*[HIGH]* `spike` on `payment-service`\nEvent spike on 'payment-service': 42 events in last 5m (baseline ~3.2/window)"
+}
+```
+
+The `text` field is formatted for Slack-compatible webhook receivers. For Teams or custom endpoints, update `services/notifier.py` to adjust the payload shape.
