@@ -187,3 +187,21 @@
 - `README.md`: added "Live Traffic Simulation" section + "Webhook Alerts" section with payload structure
 - Seeded anomaly_logs table with a detection cycle
 - **Tests: 45/45 pass** (48.75s — no regressions from new model/service changes)
+
+---
+
+## Turn 13 — 2026-05-31
+**Prompt:**
+> Update the WEBHOOK_URL in .env to [https://webhook.site/4760ba7c-cc9a-4b4d-9bd2-82ca2fd54021]. Restart the app and trigger one spike using scripts/generate_logs.py --spike so we can verify the webhook payload fires to webhook.site. Update prompts.md.
+
+**Actions taken:**
+- Updated `ALERT_WEBHOOK_URL` in `.env`
+- Killed and restarted uvicorn; confirmed `settings.alert_webhook_url` loaded correctly
+- Ran `python scripts/generate_logs.py --spike` — 20/20 events returned 201
+- Acknowledged existing open payment-service alert (suppression guard)
+- Forced detection cycle via `detect_anomalies()` + `dispatch()`
+- Results:
+  - Groq LLM → `HTTP 200`, category = `Network`
+  - Alert created: `[HIGH] spike on payment-service`
+  - Webhook → `POST https://webhook.site/4760ba7c-cc9a-4b4d-9bd2-82ca2fd54021` → `HTTP 200 OK`
+- Payload delivered to webhook.site (visible at https://webhook.site/#!/4760ba7c-cc9a-4b4d-9bd2-82ca2fd54021)
