@@ -206,6 +206,7 @@ Each alert includes: `rule`, `source`, `message`, `severity`, `acknowledged`, `l
 | `GET` | `/metrics/root-cause-distribution` | `{category: count}` for all 6 categories |
 | `GET` | `/metrics/trends` | Hourly `{total, errors, warnings}` for last 24 h |
 | `GET` | `/metrics/anomaly-log` | Last N detection cycle entries |
+| `GET` | `/metrics/performance` | Detector summary: total alerts fired, total suppressions, suppression rate %, alerts by severity, avg alerts per day |
 
 ### System
 
@@ -310,11 +311,12 @@ For Teams or custom endpoints, update `services/notifier.py` to adjust the shape
 | **Event Volume Over Time** | Hourly line chart — index tooltip shows exact count per hour |
 | **Root Cause Distribution** | Pie chart + aligned HTML legend table (Category / Count / Share%) |
 | **Trends** | Three-series line chart: Total (blue) / Errors (red) / Warnings (orange) |
-| **Recent Alerts** | Severity badge · Category badge · AI analysis panel · Suppression count |
+| **Detector Performance** | 5-stat widget: total alerts fired · total suppressions · suppression rate % · alerts by severity (colour-coded badges) · avg alerts per day — powered by `GET /metrics/performance` |
+| **Recent Alerts** | Severity badge · Category badge · AI analysis panel · Suppression count · newest first |
 | **Anomaly Detection Log** | Per-source per-cycle: events · errors · error% · threshold · Normal/Anomaly |
 | **Recent Events** | Level badge · source · message · value · IST timestamp |
 
-All timestamps displayed in **IST (UTC+5:30)** with `IST` suffix. Dashboard auto-refreshes every **15 seconds**.
+All timestamps displayed in **IST (UTC+5:30)** with `IST` suffix via a Jinja2 `to_ist` filter applied globally across dashboard, events, and alerts pages. Dashboard auto-refreshes every **15 seconds**.
 
 ---
 
@@ -376,6 +378,58 @@ observability-watchdog/
 ├── .gitignore
 └── requirements.txt
 ```
+
+---
+
+## Design Decisions & Tradeoffs
+
+Every architectural choice involves a tradeoff. These are the six key decisions made during this project, with honest reasoning on both sides.
+
+### 1. FastAPI over Flask / Django
+
+**Why:** FastAPI provides automatic OpenAPI documentation, native async support, and Pydantic-based request validation with zero boilerplate. A `POST /events/` endpoint with full validation and serialisation takes ~10 lines. Flask would require four or five additional libraries to reach the same level; Django's ORM and admin would be substantial overkill for an API-first service with a custom dashboard.
+
+**Tradeoff:** FastAPI's async model means blocking SQLAlchemy calls run synchronously in a thread pool. A fully async stack (SQLAlchemy 2 async + asyncpg) would scale better under high concurrency, but adds considerable complexity that is unnecessary at current load levels.
+
+---
+
+### 2. SQLite over PostgreSQL
+
+**Why:** Zero-config, zero-process, portable. The project runs with a single `uvicorn main:app` command — no Docker Compose, no pg_hba.conf, no connection strings to manage. SQLite is fully capable of handling thousands of events per hour, which covers the intended use case.
+
+**Tradeoff:** SQLite has no concurrent write isolation beyond a global write lock, no native JSON column type, and stores datetimes as strings (which caused the timestamp format collision bug in Turn 20). A production deployment with multiple uvicorn workers or high-frequency ingest would require PostgreSQL. The swap is a one-line change to `DB_URL` in `.env` — the SQLAlchemy ORM abstracts the rest.
+
+---
+
+### 3. Statistical Threshold over ML-Based Anomaly Detection
+
+**Why:** The spike rule (`current > 3× baseline`) and critical flood rule (`≥ 10 criticals in 5 min`) are deterministic, explainable, and configurable without training data. Every threshold, every baseline window, and every alert trigger is queryable from the `anomaly_logs` table. Engineers can audit exactly why an alert fired.
+
+**Tradeoff:** Statistical thresholds miss gradual drift and seasonal patterns. A service that slowly degrades over days — never crossing the 3× spike threshold in any 5-minute window — would go undetected. ML-based detection (e.g. LSTM autoencoders or Isolation Forest) would catch these patterns but requires labelled data, a training pipeline, model versioning, and significantly higher operational complexity. For an MVP, explainability and zero-data-dependency wins.
+
+---
+
+### 4. Groq over Azure OpenAI (with production note)
+
+**Why:** Groq's free tier provides `llama-3.1-8b-instant` at ~100 ms inference latency with no credit card required. For a prototype and portfolio project, this removes the cost barrier entirely and allows anyone to clone and run the project immediately.
+
+**Tradeoff:** Groq's free tier has rate limits and no SLA. In a production environment, **Azure OpenAI** would be the preferred choice — it offers enterprise SLAs, private VNet deployment, data residency controls, and the same Llama or GPT-4 models via a consistent API surface. The switch requires only changing `groq_api_key` / `groq_model` in `.env` and updating the client in `services/llm_analyzer.py`; the rest of the system is model-agnostic.
+
+---
+
+### 5. LLM Used for Enrichment, Not Detection
+
+**Why:** Core alerting — spike detection, critical flood, suppression — operates entirely on deterministic SQL queries with no dependency on any external API. If the Groq API is down, over quota, or the key is missing, the system continues to detect anomalies and fire alerts normally. The LLM layer is strictly additive: it enriches an alert that already exists.
+
+**Tradeoff:** This means the LLM cannot influence whether an alert fires, only what it says once fired. A more tightly integrated approach — where the LLM evaluates whether a pattern is truly anomalous — would reduce false positives but would make the detection pipeline dependent on API availability, latency, and cost. For an SRE tool where alert reliability is paramount, independence of the critical path is the right call.
+
+---
+
+### 6. 10-Minute Alert Suppression Window
+
+**Why:** A 60-second scheduler cycle on a service experiencing an ongoing spike would fire a new alert every minute indefinitely — drowning the alert list and exhausting LLM quota. A 10-minute window means at most 1 Groq call and 1 DB write per incident per source per rule, while still ensuring the alert reflects the most recent context.
+
+**Tradeoff:** 10 minutes is a fixed heuristic. A 2-minute outage followed by an 11-minute recovery followed by a second outage would create two alerts (correct). A single 15-minute outage would create one alert and increment `suppression_count` to 14 — accurate but the original alert message may not reflect the full duration. A smarter approach would update the alert message on each suppression cycle; the current implementation prefers simplicity and auditability.
 
 ---
 

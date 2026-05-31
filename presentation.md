@@ -441,7 +441,24 @@ Scrubbed all `gsk_*` patterns from every commit. Deleted `refs/original`, expire
 
 ---
 
-## Slide 10 — GitHub & Submission
+## Slide 10 — Design Decisions & Tradeoffs
+
+# Design Decisions & Tradeoffs
+
+_Every decision is a bet. Here are the six bets made — and what they cost._
+
+| Decision | Chosen | Reasoning | Honest Tradeoff |
+|---|---|---|---|
+| **Web framework** | FastAPI | Auto OpenAPI docs, Pydantic validation, near-zero boilerplate for API-first design | Blocking SQLAlchemy calls run in thread pool; fully async stack needed for high concurrency |
+| **Database** | SQLite | Zero-config, single-file, no infra — clone and run in one command | No concurrent write isolation; datetimes stored as strings (caused Turn 20 sort bug); swap to PostgreSQL via `DB_URL` env var for production |
+| **Anomaly detection** | Statistical threshold (3× baseline + critical flood) | Deterministic, explainable, no training data; every alert trigger is auditable in `anomaly_logs` | Misses gradual drift and seasonal patterns; ML-based detection (LSTM, Isolation Forest) would catch slow degradation but adds training pipeline complexity |
+| **LLM provider** | Groq (`llama-3.1-8b-instant`) | Free tier, ~100 ms latency, no credit card — lowers barrier for anyone cloning the repo | Rate-limited, no SLA; **production would use Azure OpenAI** for enterprise SLAs, VNet deployment, and data residency. One-file change to swap |
+| **LLM role** | Enrichment only — not detection | Core alerting has zero API dependency; system operates fully if Groq is down, over-quota, or unconfigured | LLM cannot influence whether an alert fires — only what it says. Cannot reduce false positives at source |
+| **Suppression window** | 10 minutes (fixed) | At most 1 Groq call + 1 DB write per incident per source; prevents alert storms and quota exhaustion | Fixed heuristic — doesn't adapt to incident duration. Alert message may not reflect a 15-minute outage; `suppression_count` carries the signal |
+
+---
+
+## Slide 11 — GitHub & Submission
 
 # GitHub & Submission
 

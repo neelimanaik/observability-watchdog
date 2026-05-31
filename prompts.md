@@ -360,3 +360,26 @@
 - Confirmed: `git ls-remote --heads origin` returns only `refs/heads/main` (SHA 4bb327b)
 - Local `master` branch re-pointed to track `origin/main` via `git branch -u origin/main master`
 - `git remote prune origin` — removed stale remote-tracking ref for origin/master
+
+---
+
+## Turn 24 — 2026-05-31
+**Prompt:**
+> 1) Add "Design Decisions & Tradeoffs" section to README covering 6 decisions with reasoning + tradeoff. Also update README with Detector Performance endpoint and IST timezone mentions. 2) Add new Slide 10 "Design Decisions & Tradeoffs" to presentation.md; renumber old Slide 10 (GitHub) to Slide 11. Commit and push. Update prompts.md.
+
+**Actions taken:**
+- `README.md`:
+  - Added `GET /metrics/performance` row to the Metrics API table
+  - Added "Detector Performance" row to Dashboard Panels table (5-stat widget description)
+  - Extended IST sentence to mention `to_ist` Jinja2 filter and all three pages
+  - Added "## Design Decisions & Tradeoffs" section (6 subsections, each with Why + Tradeoff):
+    1. FastAPI over Flask/Django
+    2. SQLite over PostgreSQL (with Turn 20 datetime bug as concrete tradeoff example)
+    3. Statistical threshold over ML-based detection
+    4. Groq over Azure OpenAI (production would use Azure OpenAI — explicit note)
+    5. LLM for enrichment not detection — core alerting independent of API availability
+    6. 10-minute suppression window — fixed heuristic, limitation acknowledged
+- `presentation.md`:
+  - Inserted new "## Slide 10 — Design Decisions & Tradeoffs" with 6-row two-column table (Decision + Chosen + Reasoning + Honest Tradeoff)
+  - Renamed "## Slide 10 — GitHub & Submission" → "## Slide 11 — GitHub & Submission" (and matching heading)
+- Verified: 14/14 checks pass
