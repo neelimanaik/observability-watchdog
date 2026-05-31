@@ -336,3 +336,15 @@
 - Slide 5 Dashboard Panels: added bullet — "Detector Performance widget — total alerts fired, total suppressions, suppression rate %, alerts by severity (coloured badges), avg alerts per day; powered by `GET /metrics/performance`"
 - Slide 7 "Visible on Dashboard": extended paragraph to note the badge appears on both the dashboard Recent Alerts panel AND the full /ui/alerts page; added note that suppression_count is also in the GET /alerts/ REST API response
 - Slide 9 bugs-fixed table: added 7th row for the SQLite mixed-format sort bug — describes the T-separator vs space-separator root cause, and the `func.datetime()` + DB migration fix
+
+---
+
+## Turn 22 — 2026-05-31
+**Prompt:**
+> GitHub repo shows only 1 commit and only README.md. Push all current code to GitHub including all project files. Ensure all files are committed and pushed to main branch. Show git log after pushing.
+
+**Root cause:** GitHub repo had two branches — `main` (1 commit, README only, created at repo initialisation) and `master` (23 commits, all code). GitHub displays `main` as the default branch, so visitors only saw the 1-commit README. All prior `git push` commands targeted `master` and succeeded — but `main` was never updated.
+
+**Fix:** `git push origin master:main --force` — replaces the `main` branch tip with the full 23-commit `master` history. Both `main` and `master` now point to `49b7dca`.
+
+**All 37 files now on main:** main.py, models/, routers/, services/, templates/, tests/, scripts/, config.py, database.py, scheduler.py, seed.py, requirements.txt, README.md, prompts.md, presentation.md, .gitignore, .claude/
