@@ -1,8 +1,8 @@
-﻿# Observability Watchdog
+﻿# Observability Watchdog ⚡
 
-An API-first, intelligent observability platform that ingests application events, detects anomalies in real time, uses a large language model to generate structured root cause analysis, and surfaces everything through a live auto-refreshing dashboard — all backed by SQLite with zero external infrastructure dependencies.
+An API-first, intelligent observability platform that ingests application events, detects anomalies in real time, enriches every alert with LLM-powered root cause analysis, and surfaces everything in a live auto-refreshing dashboard — all backed by SQLite with zero external infrastructure dependencies.
 
-Built as a full-stack Python project demonstrating event-driven architecture, automated anomaly detection with configurable thresholds, LLM-powered SRE workflows using the Groq free API tier, and a dark-theme dashboard with Chart.js visualisations.
+> **Session stats:** Built in a single Lead Architect session · 45 automated tests · 16 features shipped · 0 manual code edits
 
 ---
 
@@ -11,36 +11,61 @@ Built as a full-stack Python project demonstrating event-driven architecture, au
 ```mermaid
 flowchart TD
     A[Client / Service] -->|POST /events/| B[FastAPI Ingest Layer]
-    B -->|SQLAlchemy ORM| C[(SQLite events)]
+    B -->|SQLAlchemy ORM| C[(SQLite — events)]
 
-    subgraph Scheduler [APScheduler every 60s]
+    subgraph Scheduler [APScheduler — every 60 s]
         D[Anomaly Detector]
-        D -->|Spike rule / Critical flood rule| E{Alert?}
+        D -->|Spike rule\nCritical flood rule| E{Alert?}
     end
 
-    C -->|Query window| D
-    E -->|Yes — new alert| F[(SQLite alerts)]
-    E -->|Suppressed — within 10 min| G[Increment suppression_count]
+    C -->|Query 5-min window| D
+    E -->|New alert| F[(SQLite — alerts)]
+    E -->|Suppressed within 10 min| G[Increment suppression_count]
     G --> F
-    E -->|Yes| H[LLM Analyser]
+    E -->|New alert| H[LLM Analyser]
 
     H -->|Fetch recent events| C
-    H -->|JSON prompt: category + analysis| I[Groq API llama-3.1-8b-instant]
-    I -->|{category, analysis}| H
-    H -->|root_cause_category + llm_analysis| F
+    H -->|JSON prompt| I[Groq API\nllama-3.1-8b-instant]
+    I -->|category + analysis| H
+    H -->|root_cause_category\nllm_analysis| F
 
-    E -->|Yes| J[Notifier]
-    J -->|Optional webhook| K[Slack / Teams / Custom]
+    E -->|New alert| J[Notifier]
+    J -->|POST payload| K[Webhook\nSlack / Teams / webhook.site]
 
-    F -->|Metric snapshots| L[(SQLite metrics)]
+    D -->|Per-source log| L[(SQLite — anomaly_logs)]
+    F -->|Window snapshots| M[(SQLite — metrics)]
 
-    M[Browser] -->|GET / auto-refresh 15s| N[Dashboard UI]
-    M -->|GET /ui/events| O[Events UI]
-    M -->|GET /ui/alerts| P[Alerts UI]
+    N[Browser] -->|GET / — 15 s auto-refresh| O[Dashboard UI]
+    N -->|GET /ui/events| P[Events UI]
+    N -->|GET /ui/alerts| Q[Alerts UI]
 
-    N & O & P -->|Jinja2 + Chart.js + HTMX| M
-    F & C & L -->|SQLAlchemy| N
+    O & P & Q -->|Jinja2 + Chart.js + HTMX| N
+    F & C & M & L -->|SQLAlchemy| O
 ```
+
+---
+
+## Feature Overview
+
+| Feature | Detail |
+|---|---|
+| **Event ingestion** | `POST /events/` — source, level, message, value, tags, timestamp |
+| **Anomaly detection** | Spike rule + critical flood rule, configurable thresholds, 60 s cycle |
+| **Alert suppression** | 10-min window: no duplicate DB records, no redundant LLM calls; `suppression_count` incremented |
+| **LLM root cause analysis** | Groq `llama-3.1-8b-instant`; JSON response `{category, analysis}`; graceful fallback |
+| **Root cause categories** | Database · Network · Authentication · Memory/Resource · Application · Unknown |
+| **Category badges** | Colour-coded on every alert row; `Unknown` badge shown instead of a dash for uncategorised alerts |
+| **Alert suppression badge** | Purple `+N` badge shows how many times an alert was suppressed |
+| **Webhook delivery** | POST to any HTTP endpoint on alert fire; tested with webhook.site |
+| **Auto-refresh dashboard** | Reloads every 15 s; "Last updated: HH:MM:SS IST" timestamp top-right |
+| **IST timestamps** | All times displayed in IST (UTC+5:30) across dashboard, alerts, and events pages |
+| **Pie chart % labels** | Doughnut and pie charts show percentage on slices; legend shows `Label (count — X%)` |
+| **Aligned RCA legend** | Custom HTML table with Category / Count / Share columns — pixel-perfect alignment |
+| **Trends line chart** | Three series (Total / Errors / Warnings) over last 24 h in hourly buckets |
+| **Anomaly Detection Log** | Real-time table: Time · Source · Events · Errors · Err% · Threshold · Status |
+| **Health endpoint** | `GET /health` — status, version, uptime_seconds, total_events_24h, open_alerts |
+| **Log generator script** | `scripts/generate_logs.py` — continuous stream or `--spike` burst |
+| **Test suite** | 45 tests across 4 files; in-memory SQLite; no mocks on happy paths |
 
 ---
 
@@ -49,66 +74,31 @@ flowchart TD
 | Layer | Technology |
 |---|---|
 | API framework | [FastAPI](https://fastapi.tiangolo.com/) 0.115 |
-| Database | SQLite via [SQLAlchemy](https://www.sqlalchemy.org/) 2.0 |
+| Database | SQLite via [SQLAlchemy](https://www.sqlalchemy.org/) 2.0 (ORM + Core) |
 | Schema validation | [Pydantic](https://docs.pydantic.dev/) v2 |
 | Background jobs | [APScheduler](https://apscheduler.readthedocs.io/) 3.10 |
 | LLM inference | [Groq](https://console.groq.com/) free API — `llama-3.1-8b-instant` |
-| Dashboard | [Jinja2](https://jinja.palletsprojects.com/) + [HTMX](https://htmx.org/) + [Chart.js](https://www.chartjs.org/) 4.4 + [chartjs-plugin-datalabels](https://chartjs-plugin-datalabels.netlify.app/) |
+| Dashboard | [Jinja2](https://jinja.palletsprojects.com/) + [HTMX](https://htmx.org/) + [Chart.js](https://www.chartjs.org/) 4.4 + [chartjs-plugin-datalabels](https://chartjs-plugin-datalabels.netlify.app/) 2.2 |
 | ASGI server | [Uvicorn](https://www.uvicorn.org/) |
-| Test suite | [pytest](https://pytest.org/) — 45 tests, in-memory SQLite |
-
----
-
-## Features
-
-### Event Ingestion
-- `POST /events/` accepts source, level (`info`/`warn`/`error`/`critical`), message, optional numeric value, and arbitrary JSON tags.
-- Events are validated, normalised, and stored with a UTC timestamp.
-
-### Anomaly Detection (automated, every 60 s)
-- **Spike rule** — fires a `HIGH` alert when a source emits 3× its 30-minute baseline (minimum 10 events) in the current 5-minute window.
-- **Critical flood rule** — fires a `CRITICAL` alert when a source produces ≥ 10 critical-level events in the window.
-- **Alert suppression** — if an unacknowledged alert for the same rule + source was created within the last 10 minutes, no new DB record is created and the LLM is not called again; instead `suppression_count` is incremented on the existing alert.
-- Deduplication resets when an alert is acknowledged via `PATCH /alerts/{id}/acknowledge`.
-
-### LLM Root Cause Analysis
-- When a new alert fires, `services/llm_analyzer.py` fetches the 20 most recent events for that source (last 30 minutes) and sends a structured SRE prompt to Groq.
-- The model returns a JSON object `{"category": "...", "analysis": "..."}`.
-- **Category** is one of: `Database`, `Network`, `Authentication`, `Memory/Resource`, `Application`, `Unknown`.
-- Both fields are stored on the alert. The category appears as a colour-coded badge; the analysis expands as a collapsible panel.
-- Graceful degradation: if the API key is absent or the call fails, the alert is still created with `NULL` analysis — no functionality is lost.
-
-### Dashboard
-- **Auto-refreshes every 15 seconds** — a "Last updated: HH:MM:SS" timestamp in the top-right shows the last reload time.
-- **KPI cards**: Total events (24 h), errors/criticals, open alerts, active sources.
-- **Events by Level** doughnut chart with percentage labels on slices and `Label (count — X%)` legend entries.
-- **Event Volume Over Time** line chart (hourly buckets, last 24 h).
-- **Root Cause Distribution** pie chart with the same percentage labels, powered by `GET /metrics/root-cause-distribution`.
-- **Recent Alerts** table: severity badge (colour-coded), category badge, AI analysis panel, suppression count badge, acknowledge button (HTMX, no page reload).
-- **Recent Events** table: level badge, source, message, value, timestamp.
-
-### API
-See [API Endpoints](#api-endpoints) below.
+| Test suite | [pytest](https://pytest.org/) 8.3 — 45 tests, in-memory SQLite with StaticPool |
 
 ---
 
 ## Setup
 
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/neelimanaik/observability-watchdog.git
 cd observability-watchdog
 ```
 
-### 2. Create and activate a virtual environment
+### 2. Virtual environment
 
 ```bash
 python -m venv .venv
-# macOS / Linux
-source .venv/bin/activate
-# Windows
-.venv\Scripts\activate
+source .venv/bin/activate      # macOS / Linux
+.venv\Scripts\activate         # Windows
 ```
 
 ### 3. Install dependencies
@@ -117,53 +107,77 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Configure environment variables
-
-Edit `.env` and set your Groq API key (free at [console.groq.com](https://console.groq.com)):
+### 4. Configure `.env`
 
 ```ini
+# Required — free key at https://console.groq.com
 GROQ_API_KEY=gsk_your_key_here
-ALERT_WEBHOOK_URL=          # optional — Slack/Teams incoming webhook
+
+# Optional — paste a free URL from https://webhook.site to see live alert payloads
+ALERT_WEBHOOK_URL=https://webhook.site/your-unique-id-here
 ```
 
-> **Note:** `.env` is git-ignored. Your API key is never committed.
+> `.env` is git-ignored. Your API key is never committed.
 
-### 5. Run the server
+### 5. Run
 
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Open **http://localhost:8000** for the dashboard or **http://localhost:8000/docs** for the interactive API explorer.
+| URL | Purpose |
+|---|---|
+| http://localhost:8000 | Live dashboard (auto-refreshes every 15 s) |
+| http://localhost:8000/ui/events | Filterable event log |
+| http://localhost:8000/ui/alerts | Alert list with AI analysis |
+| http://localhost:8000/docs | Interactive OpenAPI / Swagger UI |
+| http://localhost:8000/health | Health check JSON |
 
-### 6. Seed demo data (optional)
+### 6. Seed demo data
 
 ```bash
-python seed.py
+python seed.py          # 300 realistic events across 5 services
 ```
-
-Injects 300 realistic events across 5 simulated services over the last 24 hours.
 
 ### 7. Run the test suite
 
 ```bash
-pytest tests/ -v
+pytest tests/ -v        # 45 tests, ~35 s
 ```
 
 ---
 
-## API Endpoints
+## Simulating Live Traffic
+
+`scripts/generate_logs.py` streams realistic events to simulate a live environment and trigger anomaly detection.
+
+```bash
+# Stream continuous events (mix of info/warn/error/critical) — Ctrl-C to stop
+python scripts/generate_logs.py
+
+# Send a spike of 20 consecutive errors to trigger an alert within 60 s
+python scripts/generate_logs.py --spike
+
+# Options
+#   --host URL       API base URL (default: http://localhost:8000)
+#   --interval SECS  Delay between events (default: 0.5 s)
+#   --source SVC     Pin to one service name
+python scripts/generate_logs.py --spike --source auth-service
+```
+
+---
+
+## API Reference
 
 ### Events
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/events/` | Ingest a new event |
-| `GET` | `/events/` | List events — filter by `source`, `level`; paginate with `limit` / `offset` |
-| `GET` | `/events/{id}` | Fetch a single event by ID |
+| `POST` | `/events/` | Ingest one event |
+| `GET` | `/events/` | List events — `?source=`, `?level=`, `?limit=`, `?offset=` |
+| `GET` | `/events/{id}` | Single event by ID |
 
-**Example payload:**
-
+**Payload:**
 ```json
 {
   "source": "payment-service",
@@ -173,15 +187,14 @@ pytest tests/ -v
   "tags": { "env": "prod", "region": "us-east" }
 }
 ```
-
 Valid levels: `info` · `warn` · `error` · `critical`
 
 ### Alerts
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/alerts/` | List alerts — filter by `acknowledged` |
-| `PATCH` | `/alerts/{id}/acknowledge` | Mark an alert as acknowledged |
+| `GET` | `/alerts/` | List alerts — `?acknowledged=true/false` |
+| `PATCH` | `/alerts/{id}/acknowledge` | Mark alert acknowledged |
 
 Each alert includes: `rule`, `source`, `message`, `severity`, `acknowledged`, `llm_analysis`, `root_cause_category`, `suppression_count`, `created_at`.
 
@@ -189,63 +202,56 @@ Each alert includes: `rule`, `source`, `message`, `severity`, `acknowledged`, `l
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/metrics/` | List per-source window snapshots — filter by `source` |
-| `GET` | `/metrics/root-cause-distribution` | Returns `{category: count}` for all 6 categories |
+| `GET` | `/metrics/` | Per-source window snapshots |
+| `GET` | `/metrics/root-cause-distribution` | `{category: count}` for all 6 categories |
+| `GET` | `/metrics/trends` | Hourly `{total, errors, warnings}` for last 24 h |
+| `GET` | `/metrics/anomaly-log` | Last N detection cycle entries |
 
 ### System
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/health` | Returns `status`, `version`, `uptime_seconds`, `total_events_24h`, `open_alerts_count` |
-
-### Dashboard UI
-
-| Path | Description |
-|---|---|
-| `GET /` | Auto-refreshing dashboard (15 s) |
-| `GET /ui/events` | Filterable event log |
-| `GET /ui/alerts` | Full alert list with AI analysis and category badges |
-| `GET /docs` | Interactive OpenAPI / Swagger UI |
+| `GET` | `/health` | `{status, version, uptime_seconds, total_events_24h, open_alerts_count}` |
 
 ---
 
 ## How Anomaly Detection Works
 
-APScheduler runs a detection cycle every 60 seconds. Each cycle applies two rules against a sliding window (default: last 5 minutes).
+The scheduler runs every 60 seconds and applies two rules over a 5-minute sliding window.
 
-### Rule 1 — Event Spike
-
-```
-threshold = max(baseline_avg_per_window x ANOMALY_SPIKE_MULTIPLIER, 10)
-if current_count >= threshold  ->  fire HIGH alert
-```
-
-Baseline is the average per window over the preceding 30 minutes. Default multiplier: `3.0`.
-
-### Rule 2 — Critical Flood
+### Spike Rule → `HIGH` alert
 
 ```
-if critical_count_in_window >= 10  ->  fire CRITICAL alert
+threshold = max(baseline_avg_per_window × ANOMALY_SPIKE_MULTIPLIER, 10)
+if window_count >= threshold  →  fire alert
+```
+
+Baseline is the average event count per window over the preceding 30 minutes. Default multiplier: `3.0`.
+
+### Critical Flood Rule → `CRITICAL` alert
+
+```
+if critical_events_in_window >= 10  →  fire alert
 ```
 
 ### Alert Suppression (10-minute window)
 
-If an unacknowledged alert for the same rule + source was created within the last 10 minutes:
-- No new DB record is inserted.
-- No LLM call is made.
-- `suppression_count` on the existing alert is incremented.
+If an unacknowledged alert for the same **rule + source** was created within the last 10 minutes:
+- No new DB record is written
+- No LLM call is made
+- `suppression_count` on the existing alert is incremented (visible as a purple `+N` badge)
 
-Visible as a purple `+N` badge on each alert row. Acknowledging an alert re-arms detection for that source.
+Acknowledging an alert via `PATCH /alerts/{id}/acknowledge` immediately re-arms detection for that source.
 
-### Metric Snapshots
+### Anomaly Detection Log
 
-After each cycle, a `Metric` row is written per active source capturing event count and average numeric value — queryable via `GET /metrics/`.
+Every detection cycle writes one `AnomalyLog` row per active source — recording window count, error count, calculated threshold, and whether an alert fired. Queryable via `GET /metrics/anomaly-log` and visible in the dashboard table.
 
 ### Configuration
 
 | Variable | Default | Description |
 |---|---|---|
-| `ANOMALY_WINDOW_MINUTES` | `5` | Detection window size |
+| `ANOMALY_WINDOW_MINUTES` | `5` | Current window size |
 | `ANOMALY_SPIKE_MULTIPLIER` | `3.0` | Spike threshold multiplier |
 | `SCHEDULER_INTERVAL_SECONDS` | `60` | Cycle frequency |
 
@@ -253,20 +259,80 @@ After each cycle, a `Metric` row is written per active source capturing event co
 
 ## How LLM Analysis Works
 
-When the detector fires a new alert, `services/llm_analyzer.py` is called immediately before the alert is written to the database.
+When a new alert fires, `services/llm_analyzer.py` is called **before** the alert is committed to the database.
 
-**Steps:**
-
-1. **Fetch context** — Retrieves the 20 most recent events for the affected source from the last 30 minutes.
-2. **Build SRE prompt** — Formats the alert and event log. System prompt instructs the model to respond with only a JSON object.
-3. **Call Groq** — Sends to `llama-3.1-8b-instant` (temperature 0.3, max 512 tokens).
-4. **Parse response** — Extracts `category` (normalised to `Unknown` if outside the valid set) and `analysis` text. Handles plain-text fallback if the model ignores the JSON instruction.
-5. **Store** — Both fields saved to `alerts.llm_analysis` and `alerts.root_cause_category`.
-6. **Display** — Category badge + collapsible "View analysis" panel per alert row.
+1. **Context fetch** — 20 most recent events for the affected source in the last 30 minutes
+2. **JSON prompt** — System prompt primes Groq as an expert SRE; instructs response as pure JSON:
+   ```json
+   {"category": "<one of 6>", "analysis": "<2-3 sentence root cause + recommendation>"}
+   ```
+3. **Groq call** — `llama-3.1-8b-instant`, temperature 0.3, max 512 tokens
+4. **Parse** — `_parse_llm_response()` strips markdown fences, validates category (falls back to `Unknown`), handles plain-text fallback
+5. **Store** — `alerts.llm_analysis` + `alerts.root_cause_category` committed atomically with the alert
+6. **Display** — Category badge always shown (grey `Unknown` if null); analysis in collapsible `▶ View` panel
 
 **Valid categories:** `Database` · `Network` · `Authentication` · `Memory/Resource` · `Application` · `Unknown`
 
-**Graceful degradation:** Any failure (missing key, quota, network) results in `NULL` values — alerts still fire normally.
+**Graceful degradation:** missing key, quota error, network failure, or malformed JSON — alert is created normally with `NULL` analysis fields. Zero functionality lost.
+
+---
+
+## Webhook Integration
+
+Set `ALERT_WEBHOOK_URL` in `.env` to receive a POST on every new alert.
+
+**Test with webhook.site (free, no sign-up):**
+1. Open [https://webhook.site](https://webhook.site) — a unique URL is generated instantly
+2. Copy it and paste into `.env`:
+   ```ini
+   ALERT_WEBHOOK_URL=https://webhook.site/your-unique-id
+   ```
+3. Run a spike: `python scripts/generate_logs.py --spike`
+4. The next detection cycle (≤ 60 s) fires — check your webhook.site inbox
+
+**Payload format** (Slack-compatible):
+```json
+{
+  "text": "*[HIGH]* `spike` on `payment-service`\nEvent spike on 'payment-service': 42 events in last 5m (baseline ~3.2/window)"
+}
+```
+
+For Teams or custom endpoints, update `services/notifier.py` to adjust the shape.
+
+---
+
+## Dashboard Panels
+
+| Panel | Description |
+|---|---|
+| **KPI cards** | Total events (24 h) · Errors/Criticals · Open alerts · Active sources |
+| **Events by Level** | Doughnut chart — % labels on slices, `Label (count — X%)` legend |
+| **Event Volume Over Time** | Hourly line chart — index tooltip shows exact count per hour |
+| **Root Cause Distribution** | Pie chart + aligned HTML legend table (Category / Count / Share%) |
+| **Trends** | Three-series line chart: Total (blue) / Errors (red) / Warnings (orange) |
+| **Recent Alerts** | Severity badge · Category badge · AI analysis panel · Suppression count |
+| **Anomaly Detection Log** | Per-source per-cycle: events · errors · error% · threshold · Normal/Anomaly |
+| **Recent Events** | Level badge · source · message · value · IST timestamp |
+
+All timestamps displayed in **IST (UTC+5:30)** with `IST` suffix. Dashboard auto-refreshes every **15 seconds**.
+
+---
+
+## Test Suite
+
+```
+tests/
+├── conftest.py          — in-memory SQLite with StaticPool; db_session + client fixtures
+├── test_anomaly.py      — 9 tests: spike detection, critical flood, metric snapshots
+├── test_events_api.py   — 15 tests: POST /events/ validation, GET filtering, pagination
+├── test_llm_analyser.py — 14 tests: JSON parsing, category validation, all fallbacks
+└── test_suppression.py  — 7 tests: window logic, count increment, LLM call gating
+```
+
+```bash
+pytest tests/ -v
+# 45 passed, 1 warning in ~35s
+```
 
 ---
 
@@ -274,36 +340,39 @@ When the detector fires a new alert, `services/llm_analyzer.py` is called immedi
 
 ```
 observability-watchdog/
-├── main.py                  # FastAPI app, health endpoint, UI routes
-├── config.py                # Pydantic settings (reads .env)
-├── database.py              # SQLAlchemy engine + session factory
-├── scheduler.py             # APScheduler background job
-├── seed.py                  # Demo data generator
+├── main.py                  # FastAPI app, /health, UI routes, to_ist Jinja2 filter
+├── config.py                # Pydantic settings — reads .env
+├── database.py              # SQLAlchemy engine, session factory, init_db
+├── scheduler.py             # APScheduler 60-second detection loop
+├── seed.py                  # Demo event generator (300 events)
 ├── models/
-│   ├── event.py
-│   ├── alert.py             # llm_analysis, root_cause_category, suppression_count
-│   └── metric.py
+│   ├── event.py             # Event ORM model
+│   ├── alert.py             # Alert — includes llm_analysis, root_cause_category, suppression_count
+│   ├── metric.py            # Per-window metric snapshot
+│   └── anomaly_log.py       # Per-source per-cycle detection log
 ├── routers/
-│   ├── events.py
-│   ├── alerts.py
-│   └── metrics.py           # includes /root-cause-distribution
+│   ├── events.py            # POST + GET /events/
+│   ├── alerts.py            # GET + PATCH /alerts/
+│   └── metrics.py           # /metrics/, /trends, /anomaly-log, /root-cause-distribution
 ├── services/
-│   ├── ingestion.py
-│   ├── anomaly.py           # Spike + flood + suppression logic
+│   ├── ingestion.py         # Event validation and DB write
+│   ├── anomaly.py           # Spike + flood + suppression + anomaly logging
 │   ├── llm_analyzer.py      # JSON-mode Groq prompt, (analysis, category) return
-│   └── notifier.py
+│   └── notifier.py          # Webhook POST dispatch
+├── scripts/
+│   └── generate_logs.py     # Continuous event streamer — --spike, --host, --interval
 ├── templates/
-│   ├── base.html            # Dark theme, severity/category badge CSS, datalabels CDN
-│   ├── dashboard.html       # Auto-refresh, 3 charts with %, alerts + events tables
-│   ├── events.html
-│   └── alerts.html
+│   ├── base.html            # Dark theme, severity/category badge CSS, CDN scripts
+│   ├── dashboard.html       # Auto-refresh, 4 charts, anomaly log table, IST timestamps
+│   ├── events.html          # Filterable event log with IST timestamps
+│   └── alerts.html          # Full alert list with AI analysis and category badges
 ├── tests/
-│   ├── conftest.py          # StaticPool in-memory SQLite fixtures
-│   ├── test_anomaly.py      # 9 tests
-│   ├── test_events_api.py   # 15 tests
-│   ├── test_llm_analyser.py # 14 tests (JSON parsing, category validation, fallbacks)
-│   └── test_suppression.py  # 7 tests
-├── .env                     # git-ignored
+│   ├── conftest.py
+│   ├── test_anomaly.py
+│   ├── test_events_api.py
+│   ├── test_llm_analyser.py
+│   └── test_suppression.py
+├── .env                     # Local secrets — git-ignored
 ├── .gitignore
 └── requirements.txt
 ```
@@ -313,50 +382,3 @@ observability-watchdog/
 ## License
 
 MIT
-
-
----
-
-## Live Traffic Simulation
-
-`scripts/generate_logs.py` streams realistic events to the watchdog API to simulate live traffic and trigger anomaly detection.
-
-```bash
-# Stream continuous realistic events (Ctrl-C to stop)
-python scripts/generate_logs.py
-
-# Send a spike of 20 consecutive errors to trigger an alert immediately
-python scripts/generate_logs.py --spike
-
-# Options
-python scripts/generate_logs.py --help
-#   --spike           Send burst then exit
-#   --host URL        API base URL (default: http://localhost:8000)
-#   --interval SECS   Delay between events (default: 0.5)
-#   --source SVC      Fix the source service name
-```
-
----
-
-## Webhook Alerts
-
-Set `ALERT_WEBHOOK_URL` in `.env` to receive a POST payload whenever an alert fires.
-
-**Get a free test URL:**
-1. Go to [https://webhook.site](https://webhook.site)
-2. Copy your unique URL (e.g. `https://webhook.site/abc-123-...`)
-3. Paste it in `.env`:
-
-```ini
-ALERT_WEBHOOK_URL=https://webhook.site/your-unique-id-here
-```
-
-The next anomaly cycle (within 60 s) will POST a payload like:
-
-```json
-{
-  "text": "*[HIGH]* `spike` on `payment-service`\nEvent spike on 'payment-service': 42 events in last 5m (baseline ~3.2/window)"
-}
-```
-
-The `text` field is formatted for Slack-compatible webhook receivers. For Teams or custom endpoints, update `services/notifier.py` to adjust the payload shape.

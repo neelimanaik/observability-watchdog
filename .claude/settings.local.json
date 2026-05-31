@@ -34,7 +34,12 @@
       "Bash(cat .git/packed-refs)",
       "Bash(rm -rf .git/refs/original)",
       "Bash(rm -f .git/ORIG_HEAD)",
-      "Bash(git count-objects *)"
+      "Bash(git count-objects *)",
+      "Bash(curl -s http://localhost:8000/ui/alerts)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/ui/alerts)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python scripts/generate_logs.py --spike)",
+      "Bash(python -m pytest tests/ -q)"
     ]
   }
 }

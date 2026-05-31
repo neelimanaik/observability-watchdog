@@ -254,3 +254,27 @@
 `{{ (a.root_cause_category or "Unknown") | replace(...) | lower | replace(...) }}` for the CSS class and `{{ a.root_cause_category or "Unknown" }}` for the text. The `badge-cat-unknown` CSS class (grey #475569) is already defined in `base.html`.
 
 **Verified:** 25 category badge cells on /ui/alerts — all use `badge-cat-*`; 3 render as `badge-cat-unknown` (previously None); 0 dashes in category position.
+
+---
+
+## Turn 17 — 2026-05-31
+**Prompt:**
+> Update README.md to reflect the final complete feature set including: IST timezone support, root cause category badges (including Unknown), aligned RCA legend table, Trends chart, Anomaly Detection Log, alert suppression, log generator, webhook.site, and 45 tests. Make it polished and submission-ready. Commit and push all pending changes. Update prompts.md.
+
+**Actions taken:**
+- Full README.md rewrite (14,126 chars):
+  - Updated description paragraph — mentions IST, auto-refresh, zero infra deps
+  - Added session stats callout (45 tests, 16 features, 0 manual edits)
+  - Updated Mermaid architecture diagram — suppression path, anomaly_logs table, webhook
+  - New Feature Overview table (16 rows) — every feature with one-line description
+  - Tech stack table updated (chartjs-plugin-datalabels added)
+  - Setup section: clean 7-step flow, URL table, concise .env example
+  - Live Traffic Simulation section with generate_logs.py usage examples
+  - API Reference: all endpoints including /metrics/trends, /metrics/anomaly-log
+  - Anomaly Detection section: added suppression rules, AnomalyLog description
+  - LLM Analysis section: updated with JSON prompt detail, parse pipeline, Unknown fallback
+  - Webhook Integration: step-by-step webhook.site instructions, payload format
+  - Dashboard Panels: table documenting all 8 dashboard panels
+  - Test Suite: file-by-file breakdown, 45 tests, run command
+  - Project Structure: updated tree with all new files (anomaly_log.py, generate_logs.py, scripts/)
+- Committed: README.md + prompts.md + .claude/settings.local.json
