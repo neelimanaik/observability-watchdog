@@ -44,6 +44,39 @@
   <canvas id="trendsChart" style="max-height:200px"></canvas>
 </div>
 
+<div class="card gap">
+  <h2>Detector Performance</h2>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1rem">
+    <div style="text-align:center">
+      <div style="font-size:1.6rem;font-weight:700;color:#38bdf8">{{ perf.total_alerts_fired }}</div>
+      <div style="font-size:.75rem;color:#94a3b8;margin-top:.2rem">Total Alerts Fired</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:1.6rem;font-weight:700;color:#7c3aed">{{ perf.total_suppressions }}</div>
+      <div style="font-size:.75rem;color:#94a3b8;margin-top:.2rem">Total Suppressions</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:1.6rem;font-weight:700;color:#22c55e">{{ perf.suppression_rate_pct }}%</div>
+      <div style="font-size:.75rem;color:#94a3b8;margin-top:.2rem">Suppression Rate</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:1rem;font-weight:600;color:#cbd5e1;line-height:1.8">
+        {% for sev in ["critical","high","medium","low"] %}
+        {% if perf.by_severity.get(sev) %}
+        <span class="badge badge-{{ sev }}" style="margin:.1rem">{{ sev }} {{ perf.by_severity[sev] }}</span>
+        {% endif %}
+        {% endfor %}
+        {% if not perf.by_severity %}<span style="color:#475569;font-size:.8rem">none yet</span>{% endif %}
+      </div>
+      <div style="font-size:.75rem;color:#94a3b8;margin-top:.2rem">Alerts by Severity</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:1.6rem;font-weight:700;color:#f59e0b">{{ perf.avg_alerts_per_day }}</div>
+      <div style="font-size:.75rem;color:#94a3b8;margin-top:.2rem">Avg Alerts / Day</div>
+    </div>
+  </div>
+</div>
+
 <div class="grid-2 gap">
   <div class="card">
     <h2>Recent Alerts</h2>

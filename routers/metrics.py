@@ -114,6 +114,39 @@ def anomaly_log(
     ]
 
 
+@router.get("/performance")
+def performance(db: Session = Depends(get_db)) -> dict:
+    """Detector performance summary: totals, suppression rate, severity breakdown, avg/day."""
+    total_alerts = db.scalar(select(func.count(Alert.id))) or 0
+    total_suppressions = db.scalar(select(func.coalesce(func.sum(Alert.suppression_count), 0))) or 0
+
+    total_events = total_alerts + total_suppressions
+    suppression_rate = round(total_suppressions / total_events * 100, 1) if total_events else 0.0
+
+    sev_rows = db.execute(
+        select(Alert.severity, func.count().label("cnt"))
+        .group_by(Alert.severity)
+    ).all()
+    by_severity = {r.severity: r.cnt for r in sev_rows}
+
+    # Average alerts per day since first alert
+    first = db.scalar(select(func.min(Alert.created_at)))
+    if first:
+        first_aware = first.replace(tzinfo=timezone.utc) if first.tzinfo is None else first
+        days = max((datetime.now(timezone.utc) - first_aware).total_seconds() / 86400, 1)
+        avg_per_day = round(total_alerts / days, 1)
+    else:
+        avg_per_day = 0.0
+
+    return {
+        "total_alerts_fired": total_alerts,
+        "total_suppressions": total_suppressions,
+        "suppression_rate_pct": suppression_rate,
+        "by_severity": by_severity,
+        "avg_alerts_per_day": avg_per_day,
+    }
+
+
 @router.get("/root-cause-distribution")
 def root_cause_distribution(db: Session = Depends(get_db)) -> dict[str, int]:
     """Returns count of alerts per root_cause_category across all alerts."""

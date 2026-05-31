@@ -297,3 +297,16 @@
   - Slide 8: Testing — 45 tests across 4 files, StaticPool fix explained with code, coverage highlights per file, key testing decisions
   - Slide 9: Vibe Coding Workflow — rules of engagement, architect decisions table, bugs-fixed table, GitHub secret scanning incident + resolution, what vibe coding enables
   - Slide 10: GitHub & Submission — repo URL, 30-second quick start, project stats table, Tagle.ai submission fields, What's Next roadmap, closing
+
+---
+
+## Turn 19 — 2026-05-31
+**Prompt:**
+> Add a Detector Performance Metrics widget to the dashboard: total alerts fired, total suppressions, suppression rate (%), alerts by severity breakdown, avg alerts per day. New GET /metrics/performance endpoint. Display as stats row above Recent Alerts table. Commit and push. Update prompts.md.
+
+**Actions taken:**
+- `routers/metrics.py`: new `GET /metrics/performance` endpoint — queries Alert table for totals, suppression sum, severity GROUP BY, first alert timestamp for avg/day calculation
+- `main.py`: inline performance computation in dashboard route (same 5 metrics); passed as `perf` dict to template
+- `templates/dashboard.html`: injected 5-column stats row card above the grid-2 (Recent Alerts + Anomaly Log) — each stat has large coloured number + small grey label; "Alerts by Severity" column renders live badge-per-severity inline
+- **Bug fixed:** `TypeError: can't subtract offset-naive and offset-aware datetimes` — `first_alert_ts` from SQLite is naive UTC; fixed with `.replace(tzinfo=timezone.utc)` guard in both `metrics.py` and `main.py`
+- **Verified live:** `GET /metrics/performance` → 200, `{total_alerts_fired:25, total_suppressions:45, suppression_rate_pct:64.3, by_severity:{critical:5,high:20}, avg_alerts_per_day:25.0}`; all 5 labels present in dashboard HTML

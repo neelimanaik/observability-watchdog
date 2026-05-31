@@ -126,6 +126,32 @@ def dashboard(request: Request):
             "values": [r.cnt for r in hourly_rows],
         }
 
+        # Detector performance metrics
+        total_alerts = db.scalar(select(func.count(Alert.id))) or 0
+        total_suppressions = db.scalar(
+            select(func.coalesce(func.sum(Alert.suppression_count), 0))
+        ) or 0
+        total_events_det = total_alerts + total_suppressions
+        suppression_rate = round(total_suppressions / total_events_det * 100, 1) if total_events_det else 0.0
+        sev_rows = db.execute(
+            select(Alert.severity, func.count().label("cnt")).group_by(Alert.severity)
+        ).all()
+        by_severity = {r.severity: r.cnt for r in sev_rows}
+        first_alert_ts = db.scalar(select(func.min(Alert.created_at)))
+        if first_alert_ts:
+            first_aware = first_alert_ts.replace(tzinfo=timezone.utc) if first_alert_ts.tzinfo is None else first_alert_ts
+            days = max((datetime.now(timezone.utc) - first_aware).total_seconds() / 86400, 1)
+            avg_per_day = round(total_alerts / days, 1)
+        else:
+            avg_per_day = 0.0
+        perf = {
+            "total_alerts_fired": total_alerts,
+            "total_suppressions": total_suppressions,
+            "suppression_rate_pct": suppression_rate,
+            "by_severity": by_severity,
+            "avg_alerts_per_day": avg_per_day,
+        }
+
         recent_alerts = db.execute(
             select(Alert).order_by(desc(Alert.created_at)).limit(10)
         ).scalars().all()
@@ -209,6 +235,7 @@ def dashboard(request: Request):
                 "rca_data": rca_data,
                 "trends_data": trends_data,
                 "anomaly_log": anomaly_log_entries,
+                "perf": perf,
                 "recent_alerts": recent_alerts,
                 "recent_events": recent_events,
             },
