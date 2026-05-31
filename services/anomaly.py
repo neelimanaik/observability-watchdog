@@ -1,9 +1,6 @@
 """
-Anomaly detection engine.
-
-Two rules run on every scheduler tick:
-  1. Spike detection  — current-window count > multiplier * baseline count
-  2. Critical flood   — any source emitting >= 10 critical events in the window
+Anomaly detection engine — spike detection + critical flood.
+Each new alert is enriched with LLM root cause analysis via Groq.
 """
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import func, select
@@ -13,6 +10,7 @@ from config import settings
 from models.event import Event
 from models.alert import Alert
 from models.metric import Metric
+from services.llm_analyzer import analyse_alert
 
 
 def _window_bounds() -> tuple[datetime, datetime]:
@@ -22,7 +20,7 @@ def _window_bounds() -> tuple[datetime, datetime]:
 
 def _baseline_bounds(window_start: datetime) -> tuple[datetime, datetime]:
     width = timedelta(minutes=settings.anomaly_window_minutes)
-    return window_start - width * 6, window_start   # 6× window as baseline
+    return window_start - width * 6, window_start
 
 
 def _open_alert_exists(db: Session, rule: str, source: str) -> bool:
@@ -35,8 +33,21 @@ def _open_alert_exists(db: Session, rule: str, source: str) -> bool:
     ) is not None
 
 
-def _create_alert(db: Session, rule: str, source: str, message: str, severity: str) -> Alert:
-    alert = Alert(rule=rule, source=source, message=message, severity=severity)
+def _create_alert(
+    db: Session,
+    rule: str,
+    source: str,
+    message: str,
+    severity: str,
+    llm_analysis: str | None = None,
+) -> Alert:
+    alert = Alert(
+        rule=rule,
+        source=source,
+        message=message,
+        severity=severity,
+        llm_analysis=llm_analysis,
+    )
     db.add(alert)
     db.commit()
     db.refresh(alert)
@@ -48,7 +59,6 @@ def detect_anomalies(db: Session) -> list[Alert]:
     baseline_start, baseline_end = _baseline_bounds(window_start)
     created: list[Alert] = []
 
-    # --- Aggregate current window by source ---
     current_q = (
         select(Event.source, func.count().label("cnt"))
         .where(Event.timestamp >= window_start, Event.timestamp < window_end)
@@ -57,7 +67,6 @@ def detect_anomalies(db: Session) -> list[Alert]:
     current_rows = db.execute(current_q).all()
 
     for source, current_count in current_rows:
-        # Spike detection
         baseline_count = db.scalar(
             select(func.count()).where(
                 Event.source == source,
@@ -74,9 +83,9 @@ def detect_anomalies(db: Session) -> list[Alert]:
                 f"Event spike on '{source}': {current_count} events in last "
                 f"{settings.anomaly_window_minutes}m (baseline ~{baseline_per_window:.1f}/window)"
             )
-            created.append(_create_alert(db, "spike", source, msg, "high"))
+            analysis = analyse_alert(db, source, msg, "spike")
+            created.append(_create_alert(db, "spike", source, msg, "high", analysis))
 
-        # Critical flood detection
         critical_count = db.scalar(
             select(func.count()).where(
                 Event.source == source,
@@ -87,10 +96,13 @@ def detect_anomalies(db: Session) -> list[Alert]:
         ) or 0
 
         if critical_count >= 10 and not _open_alert_exists(db, "critical_flood", source):
-            msg = f"Critical flood on '{source}': {critical_count} critical events in {settings.anomaly_window_minutes}m"
-            created.append(_create_alert(db, "critical_flood", source, msg, "critical"))
+            msg = (
+                f"Critical flood on '{source}': {critical_count} critical events "
+                f"in {settings.anomaly_window_minutes}m"
+            )
+            analysis = analyse_alert(db, source, msg, "critical_flood")
+            created.append(_create_alert(db, "critical_flood", source, msg, "critical", analysis))
 
-    # --- Snapshot metrics ---
     for source, current_count in current_rows:
         avg_val = db.scalar(
             select(func.avg(Event.value)).where(

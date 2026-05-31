@@ -16,6 +16,7 @@ class AlertOut(BaseModel):
     message: str
     severity: str
     acknowledged: bool
+    llm_analysis: str | None
     created_at: str
 
     model_config = {"from_attributes": True}
@@ -29,6 +30,7 @@ def _to_out(a: Alert) -> AlertOut:
         message=a.message,
         severity=a.severity,
         acknowledged=a.acknowledged,
+        llm_analysis=a.llm_analysis,
         created_at=a.created_at.isoformat(),
     )
 

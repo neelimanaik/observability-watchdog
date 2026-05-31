@@ -3,7 +3,7 @@
 <div class="card">
   <h2>Alerts</h2>
   <table>
-    <thead><tr><th>#</th><th>Severity</th><th>Rule</th><th>Source</th><th>Message</th><th>Status</th><th>Created</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>Severity</th><th>Rule</th><th>Source</th><th>Message</th><th>AI Analysis</th><th>Status</th><th>Created</th><th></th></tr></thead>
     <tbody>
     {% for a in alerts %}
     <tr id="alert-row-{{ a.id }}">
@@ -11,9 +11,19 @@
       <td><span class="badge badge-{{ a.severity }}">{{ a.severity }}</span></td>
       <td>{{ a.rule }}</td>
       <td>{{ a.source }}</td>
-      <td>{{ a.message }}</td>
-      <td>{{ "✓ Acknowledged" if a.acknowledged else "⚠ Open" }}</td>
-      <td>{{ a.created_at[:19].replace("T"," ") }}</td>
+      <td style="max-width:200px">{{ a.message }}</td>
+      <td style="max-width:300px">
+        {% if a.llm_analysis %}
+        <details>
+          <summary style="cursor:pointer;color:#38bdf8;font-size:.8rem">&#129302; View analysis</summary>
+          <div class="llm-analysis">{{ a.llm_analysis }}</div>
+        </details>
+        {% else %}
+        <span style="color:#475569;font-size:.75rem">&mdash;</span>
+        {% endif %}
+      </td>
+      <td>{{ "&#10003; Acknowledged" if a.acknowledged else "&#9888; Open" }}</td>
+      <td style="white-space:nowrap">{{ a.created_at[:19].replace("T"," ") }}</td>
       <td>
         {% if not a.acknowledged %}
         <button class="btn-ack"
@@ -24,7 +34,7 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="8" style="color:#64748b;text-align:center">No alerts</td></tr>
+    <tr><td colspan="9" style="color:#64748b;text-align:center">No alerts</td></tr>
     {% endfor %}
     </tbody>
   </table>
