@@ -6,6 +6,7 @@
   <title>{{ title | default("Observability Watchdog") }}</title>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
@@ -29,10 +30,10 @@
     .badge-info    { background: #0ea5e9; color: #fff; }
     .badge-warn    { background: #f59e0b; color: #000; }
     .badge-error   { background: #ef4444; color: #fff; }
-    .badge-critical{ background: #7c3aed; color: #fff; }
+    .badge-critical{ background: #991b1b; color: #fff; }
     .badge-high    { background: #ef4444; color: #fff; }
     .badge-medium  { background: #f59e0b; color: #000; }
-    .badge-low     { background: #22c55e; color: #000; }
+    .badge-low     { background: #ca8a04; color: #fff; }
     .gap { margin-top: 1rem; }
     button { cursor: pointer; border: none; border-radius: .25rem; padding: .3rem .75rem; font-size: .8rem; }
     .btn-ack { background: #22c55e; color: #000; }

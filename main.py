@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
 
 from fastapi import FastAPI, Request, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select, desc
 
@@ -13,6 +13,9 @@ from models.event import Event
 from models.alert import Alert
 from routers import events, alerts, metrics
 from scheduler import start_scheduler, stop_scheduler
+
+APP_VERSION = "1.0.0"
+_start_time = datetime.now(timezone.utc)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,6 +37,32 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.include_router(events.router)
 app.include_router(alerts.router)
 app.include_router(metrics.router)
+
+
+# ── Health ───────────────────────────────────────────────────────────────────
+
+@app.get("/health")
+def health():
+    db = SessionLocal()
+    try:
+        since_24h = datetime.now(timezone.utc) - timedelta(hours=24)
+        total_events_24h = db.scalar(
+            select(func.count(Event.id)).where(Event.timestamp >= since_24h)
+        ) or 0
+        open_alerts = db.scalar(
+            select(func.count(Alert.id)).where(Alert.acknowledged == False)  # noqa: E712
+        ) or 0
+    finally:
+        db.close()
+
+    uptime = (datetime.now(timezone.utc) - _start_time).total_seconds()
+    return JSONResponse({
+        "status": "ok",
+        "version": APP_VERSION,
+        "uptime_seconds": round(uptime, 1),
+        "total_events_24h": total_events_24h,
+        "open_alerts_count": open_alerts,
+    })
 
 
 # ── Dashboard UI ─────────────────────────────────────────────────────────────

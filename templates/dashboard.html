@@ -1,5 +1,9 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block content %}
+<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:.75rem;gap:.5rem">
+  <span style="font-size:.8rem;color:#64748b">Last updated:</span>
+  <span id="last-updated" style="font-size:.8rem;color:#94a3b8;font-variant-numeric:tabular-nums"></span>
+</div>
 <div class="grid-4 gap">
   <div class="card stat-card">
     <div class="num" style="color:#38bdf8">{{ stats.total }}</div>
@@ -97,53 +101,81 @@
 </div>
 
 <script>
+Chart.register(ChartDataLabels);
+
+function pctLegendLabels(chartData) {
+  const total = chartData.datasets[0].data.reduce((a, b) => a + b, 0);
+  return chartData.labels.map((lbl, i) => {
+    const val = chartData.datasets[0].data[i];
+    const pct = total > 0 ? Math.round(val / total * 100) : 0;
+    return {
+      text: lbl + " (" + val + " — " + pct + "%)",
+      fillStyle: chartData.datasets[0].backgroundColor[i],
+      hidden: false, index: i
+    };
+  });
+}
+
+const datalabelOpts = {
+  color: "#fff",
+  font: { weight: "bold", size: 11 },
+  formatter: (val, ctx) => {
+    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+    if (total === 0 || val === 0) return "";
+    return Math.round(val / total * 100) + "%";
+  }
+};
+
 const levelData = {{ level_data | tojson }};
+const levelColors = ["#0ea5e9","#f59e0b","#ef4444","#7c3aed"];
+const levelChartData = { labels: levelData.labels, datasets: [{ data: levelData.values, backgroundColor: levelColors }] };
 new Chart(document.getElementById("levelChart"), {
   type: "doughnut",
-  data: {
-    labels: levelData.labels,
-    datasets: [{ data: levelData.values, backgroundColor: ["#0ea5e9","#f59e0b","#ef4444","#7c3aed"] }]
-  },
-  options: { plugins: { legend: { labels: { color: "#cbd5e1" } } } }
+  data: levelChartData,
+  options: {
+    plugins: {
+      legend: { labels: { color: "#cbd5e1", generateLabels: () => pctLegendLabels(levelChartData) } },
+      datalabels: datalabelOpts
+    }
+  }
 });
 
 const timeData = {{ time_data | tojson }};
 new Chart(document.getElementById("timeChart"), {
   type: "line",
-  data: {
-    labels: timeData.labels,
-    datasets: [{ label: "Events", data: timeData.values, borderColor: "#38bdf8", fill: true,
-      backgroundColor: "rgba(56,189,248,.15)", tension: .3 }]
-  },
+  data: { labels: timeData.labels, datasets: [{ label: "Events", data: timeData.values, borderColor: "#38bdf8", fill: true, backgroundColor: "rgba(56,189,248,.15)", tension: .3 }] },
   options: {
     scales: {
       x: { ticks: { color: "#64748b", maxTicksLimit: 8 }, grid: { color: "#1e293b" } },
       y: { ticks: { color: "#64748b" }, grid: { color: "#334155" }, beginAtZero: true }
     },
-    plugins: { legend: { labels: { color: "#cbd5e1" } } }
+    plugins: { legend: { labels: { color: "#cbd5e1" } }, datalabels: { display: false } }
   }
 });
 
 const rcaData = {{ rca_data | tojson }};
-const rcaColors = {
-  "Application":    "#22c55e",
-  "Authentication": "#7c3aed",
-  "Database":       "#0ea5e9",
-  "Memory/Resource":"#ef4444",
-  "Network":        "#f59e0b",
-  "Unknown":        "#64748b"
-};
+const rcaColors = { "Application":"#22c55e","Authentication":"#7c3aed","Database":"#0ea5e9","Memory/Resource":"#ef4444","Network":"#f59e0b","Unknown":"#64748b" };
+const rcaBg = rcaData.labels.map(l => rcaColors[l] || "#64748b");
+const rcaChartData = { labels: rcaData.labels, datasets: [{ data: rcaData.values, backgroundColor: rcaBg }] };
 new Chart(document.getElementById("rcaChart"), {
   type: "pie",
-  data: {
-    labels: rcaData.labels,
-    datasets: [{ data: rcaData.values, backgroundColor: rcaData.labels.map(l => rcaColors[l] || "#64748b") }]
-  },
+  data: rcaChartData,
   options: {
     plugins: {
-      legend: { position: "bottom", labels: { color: "#cbd5e1", boxWidth: 12, padding: 8 } }
+      legend: { position: "bottom", labels: { color: "#cbd5e1", boxWidth: 12, padding: 8, generateLabels: () => pctLegendLabels(rcaChartData) } },
+      datalabels: datalabelOpts
     }
   }
 });
+
+// Show current time and auto-reload every 15 seconds
+function updateTimestamp() {
+  const now = new Date();
+  const el = document.getElementById("last-updated");
+  if (el) el.textContent = now.toTimeString().slice(0, 8);
+}
+updateTimestamp();
+setTimeout(() => location.reload(), 15000);
 </script>
 {% endblock %}
+

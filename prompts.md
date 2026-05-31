@@ -130,3 +130,29 @@
   - `test_suppression.py`: mock return_value changed to `("mock analysis", "Application")`
 - **Result: 45/45 tests pass** (27.89s)
 - Verified: all 4 endpoints 200; `GET /metrics/root-cause-distribution` returns all 6 categories
+
+---
+
+## Turn 11 — 2026-05-31
+**Prompt:**
+> Four improvements: 1) Pie chart percentages — show % labels on slices + counts in legend. 2) Alert severity colour coding — HIGH red, MEDIUM orange, LOW yellow, CRITICAL dark red. 3) GET /health returning JSON: status, uptime_seconds, total_events_24h, open_alerts_count, version. 4) 15-second auto-refresh on dashboard with Last updated HH:MM:SS timestamp. Update README to reflect full feature set. Commit and push. Update prompts.md.
+
+**Actions taken:**
+- `templates/base.html`:
+  - Added `chartjs-plugin-datalabels@2.2.0` CDN script
+  - `.badge-critical` dark red (#991b1b), `.badge-low` yellow (#ca8a04)
+- `templates/dashboard.html`:
+  - Added "Last updated: HH:MM:SS" bar (top-right, updates on load)
+  - `Chart.register(ChartDataLabels)` — plugin registered globally
+  - `pctLegendLabels()` helper — generates "Label (count — X%)" legend entries
+  - `datalabelOpts` — percentage labels on pie/doughnut slices
+  - levelChart and rcaChart use both `generateLabels` and `datalabels` plugin
+  - timeChart has `datalabels: {display: false}` to suppress labels on line chart
+  - `setTimeout(() => location.reload(), 15000)` — 15-second auto-refresh
+- `main.py`:
+  - `APP_VERSION = "1.0.0"` and `_start_time` module-level constants
+  - `GET /health` → `{status, version, uptime_seconds, total_events_24h, open_alerts_count}`
+- `README.md`: full rewrite — added Features section, alert suppression, LLM categorisation, auto-refresh, /health, updated test count to 45, updated architecture Mermaid diagram to include suppression path
+
+**Verified:** 7/7 dashboard checks pass; /health returns 200 with correct JSON; /ui/alerts 200
+**Tests:** 45/45 still passing (no new tests this turn — all features are UI/API layer)
