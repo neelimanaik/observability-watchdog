@@ -17,6 +17,7 @@ class AlertOut(BaseModel):
     severity: str
     acknowledged: bool
     llm_analysis: str | None
+    suppression_count: int
     created_at: str
 
     model_config = {"from_attributes": True}
@@ -31,6 +32,7 @@ def _to_out(a: Alert) -> AlertOut:
         severity=a.severity,
         acknowledged=a.acknowledged,
         llm_analysis=a.llm_analysis,
+        suppression_count=a.suppression_count,
         created_at=a.created_at.isoformat(),
     )
 

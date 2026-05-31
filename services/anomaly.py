@@ -1,6 +1,11 @@
-"""
+﻿"""
 Anomaly detection engine — spike detection + critical flood.
-Each new alert is enriched with LLM root cause analysis via Groq.
+
+Suppression logic (10-minute window):
+  - If an unacknowledged alert for the same rule+source was created within
+    the last SUPPRESSION_WINDOW_MINUTES, suppress the new alert: skip DB
+    insert and LLM call, but increment suppression_count on the existing alert.
+  - If no recent alert exists, create a new one (with LLM analysis).
 """
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import func, select
@@ -11,6 +16,8 @@ from models.event import Event
 from models.alert import Alert
 from models.metric import Metric
 from services.llm_analyzer import analyse_alert
+
+SUPPRESSION_WINDOW_MINUTES = 10
 
 
 def _window_bounds() -> tuple[datetime, datetime]:
@@ -23,14 +30,27 @@ def _baseline_bounds(window_start: datetime) -> tuple[datetime, datetime]:
     return window_start - width * 6, window_start
 
 
-def _open_alert_exists(db: Session, rule: str, source: str) -> bool:
+def _find_recent_alert(db: Session, rule: str, source: str) -> Alert | None:
+    """Return the most recent unacknowledged alert for rule+source if it was
+    created within the suppression window, otherwise None."""
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=SUPPRESSION_WINDOW_MINUTES)
     return db.scalar(
-        select(Alert).where(
+        select(Alert)
+        .where(
             Alert.rule == rule,
             Alert.source == source,
             Alert.acknowledged == False,  # noqa: E712
+            Alert.created_at >= cutoff,
         )
-    ) is not None
+        .order_by(Alert.created_at.desc())
+        .limit(1)
+    )
+
+
+def _suppress_alert(db: Session, alert: Alert) -> None:
+    """Increment suppression_count on an existing alert instead of creating a new one."""
+    alert.suppression_count += 1
+    db.commit()
 
 
 def _create_alert(
@@ -47,11 +67,29 @@ def _create_alert(
         message=message,
         severity=severity,
         llm_analysis=llm_analysis,
+        suppression_count=0,
     )
     db.add(alert)
     db.commit()
     db.refresh(alert)
     return alert
+
+
+def _handle_rule(
+    db: Session,
+    rule: str,
+    source: str,
+    message: str,
+    severity: str,
+    created: list[Alert],
+) -> None:
+    """Create a new alert or suppress into an existing one — shared by both rules."""
+    existing = _find_recent_alert(db, rule, source)
+    if existing:
+        _suppress_alert(db, existing)
+    else:
+        analysis = analyse_alert(db, source, message, rule)
+        created.append(_create_alert(db, rule, source, message, severity, analysis))
 
 
 def detect_anomalies(db: Session) -> list[Alert]:
@@ -78,13 +116,12 @@ def detect_anomalies(db: Session) -> list[Alert]:
         baseline_per_window = baseline_count / 6 if baseline_count else 0
         threshold = max(baseline_per_window * settings.anomaly_spike_multiplier, 10)
 
-        if current_count >= threshold and not _open_alert_exists(db, "spike", source):
+        if current_count >= threshold:
             msg = (
                 f"Event spike on '{source}': {current_count} events in last "
                 f"{settings.anomaly_window_minutes}m (baseline ~{baseline_per_window:.1f}/window)"
             )
-            analysis = analyse_alert(db, source, msg, "spike")
-            created.append(_create_alert(db, "spike", source, msg, "high", analysis))
+            _handle_rule(db, "spike", source, msg, "high", created)
 
         critical_count = db.scalar(
             select(func.count()).where(
@@ -95,13 +132,12 @@ def detect_anomalies(db: Session) -> list[Alert]:
             )
         ) or 0
 
-        if critical_count >= 10 and not _open_alert_exists(db, "critical_flood", source):
+        if critical_count >= 10:
             msg = (
                 f"Critical flood on '{source}': {critical_count} critical events "
                 f"in {settings.anomaly_window_minutes}m"
             )
-            analysis = analyse_alert(db, source, msg, "critical_flood")
-            created.append(_create_alert(db, "critical_flood", source, msg, "critical", analysis))
+            _handle_rule(db, "critical_flood", source, msg, "critical", created)
 
     for source, current_count in current_rows:
         avg_val = db.scalar(

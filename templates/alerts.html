@@ -3,7 +3,7 @@
 <div class="card">
   <h2>Alerts</h2>
   <table>
-    <thead><tr><th>#</th><th>Severity</th><th>Rule</th><th>Source</th><th>Message</th><th>AI Analysis</th><th>Status</th><th>Created</th><th></th></tr></thead>
+    <thead><tr><th>#</th><th>Severity</th><th>Rule</th><th>Source</th><th>Message</th><th>AI Analysis</th><th>Suppressed</th><th>Status</th><th>Created</th><th></th></tr></thead>
     <tbody>
     {% for a in alerts %}
     <tr id="alert-row-{{ a.id }}">
@@ -22,6 +22,11 @@
         <span style="color:#475569;font-size:.75rem">&mdash;</span>
         {% endif %}
       </td>
+      <td style="text-align:center">
+        {% if a.suppression_count > 0 %}
+        <span style="background:#7c3aed;color:#fff;border-radius:.25rem;padding:.1rem .4rem;font-size:.75rem">+{{ a.suppression_count }}</span>
+        {% else %}&mdash;{% endif %}
+      </td>
       <td>{{ "&#10003; Acknowledged" if a.acknowledged else "&#9888; Open" }}</td>
       <td style="white-space:nowrap">{{ a.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
       <td>
@@ -34,7 +39,7 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="9" style="color:#64748b;text-align:center">No alerts</td></tr>
+    <tr><td colspan="10" style="color:#64748b;text-align:center">No alerts</td></tr>
     {% endfor %}
     </tbody>
   </table>

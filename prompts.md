@@ -73,3 +73,31 @@
 **Fix:** Changed `a.created_at[:19].replace("T"," ")` → `a.created_at.strftime("%Y-%m-%d %H:%M:%S")` in `templates/alerts.html:26`.
 
 **Verified:** `curl /ui/alerts` returns HTTP 200.
+
+---
+
+## Turn 9 — 2026-05-31
+**Prompt:**
+> Add alert suppression to prevent duplicate alerts. Rules: 1) Same source+rule within last 10 minutes — suppress, no new DB record, no LLM call. 2) Add suppression_count column — increment on each suppression. 3) Show suppression_count on dashboard and alerts page. 4) Add pytest test verifying suppression and count increment. Run all tests and confirm they pass. Commit and push. Update prompts.md.
+
+**Actions taken:**
+- Added `suppression_count: Integer DEFAULT 0` to `models/alert.py`
+- SQLite migration: `ALTER TABLE alerts ADD COLUMN suppression_count INTEGER NOT NULL DEFAULT 0`
+- Rewrote `services/anomaly.py`:
+  - Replaced `_open_alert_exists()` with `_find_recent_alert()` — queries for unacknowledged alert created within last 10 min
+  - Added `_suppress_alert()` — increments suppression_count and commits
+  - Added `_handle_rule()` — shared dispatch: suppress if recent alert exists, else create new (with LLM)
+  - Exported `SUPPRESSION_WINDOW_MINUTES = 10` constant for tests to import
+- Updated `routers/alerts.py` — `AlertOut` + `_to_out()` now include `suppression_count`
+- Updated `templates/dashboard.html` — added "Suppressed" column (purple badge showing +N, or dash)
+- Updated `templates/alerts.html` — same Suppressed column, colspan updated to 10
+- Created `tests/test_suppression.py` — 7 tests:
+  - second cycle suppressed, count=1
+  - count increments each cycle (count=2 after 3 cycles)
+  - LLM call_count==1 across two cycles (mock verified)
+  - new alert fires after suppression window expires (created_at backdated beyond 10 min)
+  - fresh alert starts at count=0
+  - suppression is per-rule (spike and critical_flood tracked independently)
+  - acknowledged alert does not block new one
+- Restarted server to pick up model/router changes
+- **Result: 41/41 tests pass** (37.55s); all three UI pages return 200; suppression_count in API response
