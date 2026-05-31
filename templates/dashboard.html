@@ -35,6 +35,7 @@
   <div class="card">
     <h2>Root Cause Distribution</h2>
     <canvas id="rcaChart"></canvas>
+    <div id="rcaLegend" style="margin-top:.6rem"></div>
   </div>
 </div>
 
@@ -65,7 +66,7 @@
           {% else %}<span style="color:#475569;font-size:.75rem">&mdash;</span>{% endif %}
         </td>
         <td style="text-align:center">{% if a.suppression_count > 0 %}<span style="background:#7c3aed;color:#fff;border-radius:.25rem;padding:.1rem .4rem;font-size:.75rem">+{{ a.suppression_count }}</span>{% else %}&mdash;{% endif %}</td>
-        <td style="white-space:nowrap;font-size:.8rem">{{ a.created_at.strftime("%H:%M:%S") }}</td>
+        <td style="white-space:nowrap;font-size:.8rem">{{ a.created_at | to_ist("%H:%M:%S IST") }}</td>
         <td>
           {% if not a.acknowledged %}
           <button class="btn-ack" hx-patch="/alerts/{{ a.id }}/acknowledge" hx-target="#alert-row-{{ a.id }}" hx-swap="outerHTML">Ack</button>
@@ -113,7 +114,7 @@
       <td>{{ e.source }}</td>
       <td>{{ e.message[:120] }}</td>
       <td>{{ e.value if e.value is not none else "—" }}</td>
-      <td>{{ e.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+      <td>{{ e.timestamp | to_ist }}</td>
     </tr>
     {% else %}
     <tr><td colspan="5" style="color:#64748b;text-align:center">No events yet — POST to /events to start</td></tr>
@@ -179,15 +180,41 @@ const rcaData = {{ rca_data | tojson }};
 const rcaColors = { "Application":"#22c55e","Authentication":"#7c3aed","Database":"#0ea5e9","Memory/Resource":"#ef4444","Network":"#f59e0b","Unknown":"#64748b" };
 const rcaBg = rcaData.labels.map(l => rcaColors[l] || "#64748b");
 const rcaChartData = { labels: rcaData.labels, datasets: [{ data: rcaData.values, backgroundColor: rcaBg }] };
-new Chart(document.getElementById("rcaChart"), {
+const rcaChart = new Chart(document.getElementById("rcaChart"), {
   type: "pie", data: rcaChartData,
   options: {
     plugins: {
-      legend: { position: "bottom", labels: { color: "#cbd5e1", boxWidth: 12, padding: 10, font: { family: "monospace", size: 11 }, generateLabels: () => pctLegendLabels(rcaChartData) } },
+      legend: { display: false },
       datalabels: datalabelOpts
     }
   }
 });
+
+function buildRcaLegend(chart) {
+  const d = chart.data;
+  const total = d.datasets[0].data.reduce((a, b) => a + b, 0);
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:.78rem">'
+    + '<thead><tr>'
+    + '<th style="text-align:left;color:#64748b;padding:.15rem .4rem;font-weight:500">Category</th>'
+    + '<th style="text-align:right;color:#64748b;padding:.15rem .4rem;font-weight:500">Count</th>'
+    + '<th style="text-align:right;color:#64748b;padding:.15rem .4rem;font-weight:500">Share</th>'
+    + '</tr></thead><tbody>';
+  d.labels.forEach((lbl, i) => {
+    const val = d.datasets[0].data[i];
+    const pct = total > 0 ? Math.round(val / total * 100) : 0;
+    const color = d.datasets[0].backgroundColor[i];
+    html += `<tr>
+      <td style="padding:.2rem .4rem;color:#cbd5e1">
+        <span style="display:inline-block;width:9px;height:9px;background:${color};border-radius:2px;margin-right:.35rem;vertical-align:middle"></span>${lbl}
+      </td>
+      <td style="text-align:right;padding:.2rem .4rem;color:#94a3b8;font-variant-numeric:tabular-nums">${val}</td>
+      <td style="text-align:right;padding:.2rem .4rem;color:#64748b;font-variant-numeric:tabular-nums">${pct}%</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('rcaLegend').innerHTML = html;
+}
+buildRcaLegend(rcaChart);
 
 // ── Trends multi-line chart ───────────────────────────────────────────────────
 const trendsData = {{ trends_data | tojson }};
@@ -215,7 +242,7 @@ new Chart(document.getElementById("trendsChart"), {
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
 function updateTimestamp() {
   const el = document.getElementById("last-updated");
-  if (el) el.textContent = new Date().toTimeString().slice(0, 8);
+  if (el) el.textContent = new Date().toLocaleTimeString("en-IN", {timeZone:"Asia/Kolkata",hour12:false}) + " IST";
 }
 updateTimestamp();
 setTimeout(() => location.reload(), 15000);

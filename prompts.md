@@ -205,3 +205,29 @@
   - Alert created: `[HIGH] spike on payment-service`
   - Webhook → `POST https://webhook.site/4760ba7c-cc9a-4b4d-9bd2-82ca2fd54021` → `HTTP 200 OK`
 - Payload delivered to webhook.site (visible at https://webhook.site/#!/4760ba7c-cc9a-4b4d-9bd2-82ca2fd54021)
+
+---
+
+## Turn 14 — 2026-05-31
+**Prompt:**
+> Two fixes: 1) Fix RCA legend so labels/counts/percentages are perfectly column-aligned using fixed-width table layout. 2) Fix all timestamps on dashboard and alerts page to display in IST (UTC+5:30). Update prompts.md, commit and push.
+
+**Actions taken:**
+- `main.py`:
+  - Added `_IST_OFFSET = timedelta(hours=5, minutes=30)` constant
+  - Added `_to_ist(dt, fmt)` helper function (adds 5h30m, formats with strftime)
+  - Registered as Jinja2 filter: `templates.env.filters["to_ist"] = _to_ist`
+  - Fixed anomaly log dict `checked_at` to use `_to_ist(r.checked_at, "%H:%M:%S IST")`
+- `templates/dashboard.html`:
+  - `a.created_at.strftime(...)` → `a.created_at | to_ist("%H:%M:%S IST")`
+  - `e.timestamp.strftime(...)` → `e.timestamp | to_ist` (uses default format "%Y-%m-%d %H:%M:%S IST")
+  - Added `<div id="rcaLegend">` below canvas
+  - Replaced built-in Chart.js legend (`legend: {display: false}`) with `buildRcaLegend()` HTML function:
+    - Renders a `<table>` with three columns: Category (colour swatch + name), Count (right-aligned), Share % (right-aligned)
+    - Uses `font-variant-numeric: tabular-nums` for number column alignment
+    - No more reliance on canvas text rendering for legend
+  - JS "Last updated": switched to `new Date().toLocaleTimeString("en-IN", {timeZone:"Asia/Kolkata",...}) + " IST"`
+- `templates/alerts.html`:
+  - `a.created_at.strftime(...)` → `a.created_at | to_ist`
+- **Verified:** 6/6 checks pass; 25 IST timestamps on /ui/alerts (sample: 2026-05-31 16:37:28 IST)
+- **Tests: 45/45 pass** (33.89s)

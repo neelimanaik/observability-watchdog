@@ -22,7 +22,19 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
+_IST_OFFSET = timedelta(hours=5, minutes=30)
+
 templates = Jinja2Templates(directory="templates")
+
+
+def _to_ist(dt: datetime | None, fmt: str = "%Y-%m-%d %H:%M:%S IST") -> str:
+    """Convert a UTC datetime to IST (UTC+5:30) and format it."""
+    if dt is None:
+        return "—"
+    return (dt + _IST_OFFSET).strftime(fmt)
+
+
+templates.env.filters["to_ist"] = _to_ist
 
 
 @asynccontextmanager
@@ -170,7 +182,7 @@ def dashboard(request: Request):
         ).scalars().all()
         anomaly_log_entries = [
             {
-                "time": r.checked_at.strftime("%H:%M:%S"),
+                "time": _to_ist(r.checked_at, "%H:%M:%S IST"),
                 "source": r.source,
                 "window_count": r.window_count,
                 "error_count": r.error_count,
