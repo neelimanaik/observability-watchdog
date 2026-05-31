@@ -278,3 +278,22 @@
   - Test Suite: file-by-file breakdown, 45 tests, run command
   - Project Structure: updated tree with all new files (anomaly_log.py, generate_logs.py, scripts/)
 - Committed: README.md + prompts.md + .claude/settings.local.json
+
+---
+
+## Turn 18 — 2026-05-31
+**Prompt:**
+> Generate a complete presentation as a Markdown file named presentation.md covering 10 slides: Title, Problem Statement, Solution Architecture, Tech Stack, Key Features, AI Innovation, Alert Suppression, Testing, Vibe Coding Workflow, GitHub & Submission. Commit and push. Update prompts.md.
+
+**Actions taken:**
+- Created `presentation.md` (~250 lines):
+  - Slide 1: Title with author, date, repo, stack, stats callout
+  - Slide 2: Problem Statement — alert fatigue, cost of late detection, black-box AI; gap statement
+  - Slide 3: ASCII architecture diagram of full ingest→detect→LLM→suppress→webhook→dashboard flow + 4 design principles
+  - Slide 4: Tech Stack table (10 rows) with justification column; key dependency choices explained
+  - Slide 5: Feature table (16 features) split into Core Platform / AI Layer / Alert Management / Dashboard Panels
+  - Slide 6: AI Innovation — JSON-mode prompt design, live payment-service output example, 6 category table with signals
+  - Slide 7: Alert Suppression — problem statement, ASCII flowchart of suppression logic, SQL query shown, rules summary table
+  - Slide 8: Testing — 45 tests across 4 files, StaticPool fix explained with code, coverage highlights per file, key testing decisions
+  - Slide 9: Vibe Coding Workflow — rules of engagement, architect decisions table, bugs-fixed table, GitHub secret scanning incident + resolution, what vibe coding enables
+  - Slide 10: GitHub & Submission — repo URL, 30-second quick start, project stats table, Tagle.ai submission fields, What's Next roadmap, closing
