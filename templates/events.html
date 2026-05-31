@@ -23,7 +23,7 @@
       <td>{{ e.message }}</td>
       <td>{{ e.value if e.value is not none else "—" }}</td>
       <td style="font-size:.75rem;color:#94a3b8">{{ e.tags or "" }}</td>
-      <td>{{ e.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+      <td style="white-space:nowrap">{{ e.timestamp | to_ist }}</td>
     </tr>
     {% else %}
     <tr><td colspan="7" style="color:#64748b;text-align:center">No events found</td></tr>

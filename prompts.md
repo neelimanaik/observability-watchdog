@@ -231,3 +231,15 @@
   - `a.created_at.strftime(...)` → `a.created_at | to_ist`
 - **Verified:** 6/6 checks pass; 25 IST timestamps on /ui/alerts (sample: 2026-05-31 16:37:28 IST)
 - **Tests: 45/45 pass** (33.89s)
+
+---
+
+## Turn 15 — 2026-05-31
+**Prompt:**
+> The Events page (/ui/events) still shows timestamps in UTC. Apply the same IST fix — use the to_ist() Jinja2 filter on all timestamp fields in the events template. Verify timestamps show "IST" suffix. Commit and push. Update prompts.md.
+
+**Root cause:** `templates/events.html` line 26 used `e.timestamp.strftime("%Y-%m-%d %H:%M:%S")` — the same raw UTC strftime pattern missed in Turn 14 (only dashboard and alerts were fixed then).
+
+**Fix:** `e.timestamp.strftime("%Y-%m-%d %H:%M:%S")` → `e.timestamp | to_ist` in `templates/events.html:26`. Also added `white-space:nowrap` to prevent the "IST" suffix wrapping.
+
+**Verified:** `/ui/events` returns 200; 200 IST timestamps found (sample: 2026-05-31 18:36:18 IST); 0 raw UTC timestamps remaining.
