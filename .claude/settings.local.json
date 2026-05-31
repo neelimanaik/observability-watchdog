@@ -4,7 +4,22 @@
       "Bash(Get-ChildItem \"G:\\\\My Drive\\\\Claude Cowork\\\\PROJECTS\\\\observability-watchdog\" -ErrorAction SilentlyContinue)",
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(pip install *)",
+      "Bash(python -c \"import fastapi, uvicorn, sqlalchemy, pydantic, apscheduler, jinja2; print\\('All imports OK'\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python -m uvicorn main:app --host 0.0.0.0 --port 8000 --no-access-log)",
+      "Bash(python seed.py)",
+      "Bash(curl -s http://localhost:8000/events/?limit=3)",
+      "Bash(curl -s http://localhost:8000/alerts/)",
+      "Bash(curl -s \"http://localhost:8000/metrics/?limit=3\")",
+      "Bash(taskkill /F /IM python.exe /T)",
+      "Bash(findstr /i \"uvicorn\\\\|python\\\\|SUCCESS\\\\|ERROR\")",
+      "PowerShell(Get-Process python -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force)",
+      "Bash(python -c \"import sys,json; a=json.load\\(sys.stdin\\); print\\('Count:', len\\(a\\)\\); print\\('Keys:', list\\(a[0].keys\\(\\)\\) if a else 'none'\\)\")",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__Claude_in_Chrome__tabs_context_mcp"
     ]
   }
 }
