@@ -23,7 +23,7 @@
         {% endif %}
       </td>
       <td>{{ "&#10003; Acknowledged" if a.acknowledged else "&#9888; Open" }}</td>
-      <td style="white-space:nowrap">{{ a.created_at[:19].replace("T"," ") }}</td>
+      <td style="white-space:nowrap">{{ a.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
       <td>
         {% if not a.acknowledged %}
         <button class="btn-ack"

@@ -61,3 +61,15 @@
 - Committed README.md + prompts.md
 - git remote add origin https://github.com/neelimanaik/observability-watchdog.git
 - git push -u origin master
+
+---
+
+## Turn 8 — 2026-05-31
+**Prompt:**
+> The /ui/alerts page is returning an Internal Server Error. Check the server logs, identify the root cause, and fix it. Do not ask me to edit any files manually — provide the complete fix. Update prompts.md.
+
+**Root cause:** `templates/alerts.html` line 26 used `a.created_at[:19].replace("T"," ")`, treating the SQLAlchemy ORM `datetime` field as a string. The `/ui/alerts` route passes raw `Alert` ORM objects; only the API layer serialises through `AlertOut` (which converts to ISO string). The same bug was fixed on the dashboard in Turn 2 but alerts.html was missed.
+
+**Fix:** Changed `a.created_at[:19].replace("T"," ")` → `a.created_at.strftime("%Y-%m-%d %H:%M:%S")` in `templates/alerts.html:26`.
+
+**Verified:** `curl /ui/alerts` returns HTTP 200.
