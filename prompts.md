@@ -348,3 +348,15 @@
 **Fix:** `git push origin master:main --force` — replaces the `main` branch tip with the full 23-commit `master` history. Both `main` and `master` now point to `49b7dca`.
 
 **All 37 files now on main:** main.py, models/, routers/, services/, templates/, tests/, scripts/, config.py, database.py, scheduler.py, seed.py, requirements.txt, README.md, prompts.md, presentation.md, .gitignore, .claude/
+
+---
+
+## Turn 23 — 2026-05-31
+**Prompt:**
+> The GitHub repo has both main and master branches with identical content. Delete the master branch from the remote so only main remains as the single default branch. Confirm master is deleted after. Update prompts.md.
+
+**Actions:**
+- `git push origin --delete master` — remote master branch deleted
+- Confirmed: `git ls-remote --heads origin` returns only `refs/heads/main` (SHA 4bb327b)
+- Local `master` branch re-pointed to track `origin/main` via `git branch -u origin/main master`
+- `git remote prune origin` — removed stale remote-tracking ref for origin/master
