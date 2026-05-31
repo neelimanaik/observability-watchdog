@@ -19,7 +19,8 @@
       "PowerShell(Stop-Process -Force)",
       "Bash(python -c \"import sys,json; a=json.load\\(sys.stdin\\); print\\('Count:', len\\(a\\)\\); print\\('Keys:', list\\(a[0].keys\\(\\)\\) if a else 'none'\\)\")",
       "mcp__Claude_Preview__preview_start",
-      "mcp__Claude_in_Chrome__tabs_context_mcp"
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(python -m pytest tests/ -v)"
     ]
   }
 }
