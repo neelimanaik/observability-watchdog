@@ -310,3 +310,18 @@
 - `templates/dashboard.html`: injected 5-column stats row card above the grid-2 (Recent Alerts + Anomaly Log) — each stat has large coloured number + small grey label; "Alerts by Severity" column renders live badge-per-severity inline
 - **Bug fixed:** `TypeError: can't subtract offset-naive and offset-aware datetimes` — `first_alert_ts` from SQLite is naive UTC; fixed with `.replace(tzinfo=timezone.utc)` guard in both `metrics.py` and `main.py`
 - **Verified live:** `GET /metrics/performance` → 200, `{total_alerts_fired:25, total_suppressions:45, suppression_rate_pct:64.3, by_severity:{critical:5,high:20}, avg_alerts_per_day:25.0}`; all 5 labels present in dashboard HTML
+
+---
+
+## Turn 20 — 2026-05-31
+**Prompt:**
+> Two fixes: 1) /ui/alerts — sort by created_at DESC newest first. 2) Dashboard Recent Alerts — latest 10 by created_at DESC. Check query and template.
+
+**Root cause (deeper than expected):** All three queries already had `order_by(desc(Alert.created_at))`. The real bug was SQLite mixed timestamp formats: 15 seeded alerts stored with ISO format `2026-05-31T...+00:00` (T-separator, tz-aware), and 10 ORM-created alerts stored as `2026-05-31 ...` (space-separator, naive). SQLite's pure string sort puts ALL space-format strings after ALL T-format strings, regardless of actual time — so the 10 most recently created alerts (ids 19–25, created at 13:xx today) were sinking to the bottom behind older seeded alerts from Turn 10.
+
+**Fixes:**
+1. One-time DB migration: `UPDATE alerts SET created_at = REPLACE(created_at, ' ', 'T') || '+00:00' WHERE instr(created_at,'+')=0 AND instr(created_at,'Z')=0` — normalised 10 naive rows; 0 naive remaining.
+2. `main.py` (dashboard route + ui_alerts route): changed `order_by(desc(Alert.created_at))` → `order_by(func.datetime(Alert.created_at).desc())` — SQLite's `datetime()` normalises both T and space separators before comparison, robust for any future format drift.
+3. `routers/alerts.py`: same `func.datetime()` fix; added `func` to import.
+
+**Verified:** API, /ui/alerts, and dashboard all show id=25 first (correct); top 5: [25, 24, 22, 23, 21].

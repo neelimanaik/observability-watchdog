@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -44,7 +44,7 @@ def list_alerts(
     acknowledged: bool | None = None,
     db: Session = Depends(get_db),
 ):
-    q = select(Alert).order_by(desc(Alert.created_at))
+    q = select(Alert).order_by(func.datetime(Alert.created_at).desc())
     if acknowledged is not None:
         q = q.where(Alert.acknowledged == acknowledged)
     rows = db.execute(q).scalars().all()

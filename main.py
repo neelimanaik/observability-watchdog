@@ -153,7 +153,7 @@ def dashboard(request: Request):
         }
 
         recent_alerts = db.execute(
-            select(Alert).order_by(desc(Alert.created_at)).limit(10)
+            select(Alert).order_by(func.datetime(Alert.created_at).desc()).limit(10)
         ).scalars().all()
 
         recent_events = db.execute(
@@ -279,7 +279,7 @@ def ui_alerts(request: Request):
     db = SessionLocal()
     try:
         alts = db.execute(
-            select(Alert).order_by(desc(Alert.created_at))
+            select(Alert).order_by(func.datetime(Alert.created_at).desc())
         ).scalars().all()
         return templates.TemplateResponse(
             "alerts.html",
