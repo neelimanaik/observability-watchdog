@@ -325,3 +325,14 @@
 3. `routers/alerts.py`: same `func.datetime()` fix; added `func` to import.
 
 **Verified:** API, /ui/alerts, and dashboard all show id=25 first (correct); top 5: [25, 24, 22, 23, 21].
+
+---
+
+## Turn 21 — 2026-05-31
+**Prompt:**
+> Update presentation.md Slide 5 to add Detector Performance widget. Update Slide 7 to mention suppression_count visible on both dashboard and full alerts page. Update Slide 9 to add SQLite timestamp format collision bug as vibe coding example. Commit and push. Update prompts.md.
+
+**Actions taken:**
+- Slide 5 Dashboard Panels: added bullet — "Detector Performance widget — total alerts fired, total suppressions, suppression rate %, alerts by severity (coloured badges), avg alerts per day; powered by `GET /metrics/performance`"
+- Slide 7 "Visible on Dashboard": extended paragraph to note the badge appears on both the dashboard Recent Alerts panel AND the full /ui/alerts page; added note that suppression_count is also in the GET /alerts/ REST API response
+- Slide 9 bugs-fixed table: added 7th row for the SQLite mixed-format sort bug — describes the T-separator vs space-separator root cause, and the `func.datetime()` + DB migration fix

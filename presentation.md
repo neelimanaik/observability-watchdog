@@ -166,6 +166,7 @@ Client / Service
 - Event Volume Over Time line chart with index tooltip
 - Root Cause Distribution pie chart with aligned HTML legend (Category / Count / Share%)
 - Error · Warning · Request Volume Trends — three-series line chart
+- **Detector Performance widget** — total alerts fired, total suppressions, suppression rate %, alerts by severity (coloured badges), avg alerts per day; powered by `GET /metrics/performance`
 - Anomaly Detection Log — per-source, per-cycle: events, errors, error%, threshold, status
 
 ---
@@ -297,6 +298,8 @@ Every alert row shows a **purple `+N` suppression badge** when `suppression_coun
 
 This means the alert would have fired 3 more times — without cluttering the alert list or wasting LLM quota.
 
+The badge is visible in **both places**: the dashboard's Recent Alerts panel (compact view, last 10 alerts) and the full `/ui/alerts` page (all alerts, newest first). The `suppression_count` is also exposed in the `GET /alerts/` REST API response so downstream consumers can query it programmatically.
+
 ---
 
 ### Suppression Rules Summary
@@ -405,6 +408,7 @@ The entire project was built under three strict constraints:
 | Dashboard → 500 after anomaly log added | `templates/events.html` still had bare `.strftime()` | Applied `\| to_ist` filter |
 | GitHub push blocked | API key embedded in `prompts.md` in commit history | `git filter-branch --tree-filter` scrubbed all commits |
 | 7 test failures after LLM return type change | Tests expected `str`, now `(str, str)` tuple | All assertions updated to unpack tuple |
+| **Alerts sorted wrong — newest appearing last** | SQLite mixed timestamp formats: seeded alerts stored as `2026-05-31T...+00:00` (T-separator), ORM alerts as `2026-05-31 ...` (space-separator). String sort puts ALL space-format rows after ALL T-format rows — the 10 most recent alerts sank to the bottom | One-time `UPDATE` migration normalised all naive rows; all `order_by` changed to `func.datetime(Alert.created_at).desc()` so SQLite normalises both formats before comparing |
 
 ---
 
