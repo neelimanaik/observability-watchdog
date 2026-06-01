@@ -549,86 +549,25 @@ GOLDEN_CASES = [
 
 ---
 
-## Slide 12 — Enterprise Deployment Architecture
+## Slide 12 — Taking This to Production
 
-# Enterprise Deployment Architecture
+# Taking This to Production: Three Swaps, No Rewrite
 
-_How this moves from SQLite on a laptop to production on Azure._
-
----
-
-### Target Architecture: Azure-Native
-
-```
-Internet ──> Azure App Gateway
-                    |
-         ┌──────────────────────┐
-         │  Azure Kubernetes    │
-         │  ┌────────────────┐  │
-         │  │ Watchdog Pod   │  │
-         │  │ FastAPI × 2   │  │
-         │  ├────────────────┤  │
-         │  │ Worker Pod × 1 │  │
-         │  │ APScheduler    │  │
-         │  └────────┬───────┘  │
-         └───────────│──────────┘
-                     │
-         ┌───────────▼──────────┐
-         │ Azure PostgreSQL     │
-         │ Flexible Server      │
-         └───────────┬──────────┘
-                     │
-         ┌───────────▼──────────┐
-         │  Azure OpenAI Service │
-         │  Private Endpoint    │
-         │  VNet-injected       │
-         └──────────────────────┘
-                     │
-    ┌────────────────┼──────────────┐
-    ▼                ▼              ▼
-Azure Key Vault  Azure Monitor   Azure Container
-(secrets)        (App Insights,  Registry
-                  Teams alerts)  (CI/CD)
-```
+_The system was designed for production from day one. Here is what changes._
 
 ---
 
-### Why Azure OpenAI over Groq in Production
-
-| Criterion | Groq (current) | Azure OpenAI (production) |
+| What | Today (MVP) | Production |
 |---|---|---|
-| **SLA** | None (free tier) | 99.9% uptime SLA |
-| **Data residency** | US only | Region-selectable (India, EU, US) |
-| **Compliance** | Not enterprise-grade | ISO 27001, SOC 2, GDPR |
-| **Private networking** | No | VNet injection + Private Endpoint |
-| **Existing client stack** | N/A | Typically already licensed |
-| **Latency** | ~100 ms | ~200–400 ms (acceptable) |
+| **Database** | SQLite | Azure PostgreSQL — one line change in `.env` (`DB_URL`) |
+| **LLM** | Groq free tier | Azure OpenAI — 5-line change in `llm_analyzer.py`, same prompt, same parsing |
+| **Hosting** | Local Uvicorn | Azure App Service or Azure Container Apps |
+| **Secrets** | `.env` file | Azure Key Vault |
 
-**The code change is ~5 lines in `services/llm_analyzer.py`** — swap `groq.Groq` for the Azure OpenAI client, update the model name. Everything else (prompt, parsing, fallback) stays identical.
+No rewrite required. The SQLAlchemy ORM abstracts the database layer. The LLM client is isolated in one file. Secrets are already read from environment variables.
 
----
-
-### SQLite → PostgreSQL Migration Checklist
-
-- [ ] Set `DB_URL=postgresql+psycopg2://user:pass@host/watchdog` in Key Vault
-- [ ] Run `alembic upgrade head` to apply schema migrations
-- [ ] Replace `func.strftime(...)` with `date_trunc('hour', timestamp)` in hourly queries
-- [ ] Remove `func.datetime()` sort workaround — PostgreSQL sorts native timestamps correctly
-- [ ] Update `connect_args`: remove `check_same_thread`, add connection pool settings
-
----
-
-### Operational Additions for Enterprise
-
-| Component | Tool | Purpose |
-|---|---|---|
-| Secrets | Azure Key Vault | Rotate keys without redeployment |
-| Observability | Azure Monitor + App Insights | Trace every request, 5xx alerting |
-| CI/CD | GitHub Actions → ACR → AKS | Build, scan, deploy on every merge |
-| Auth | Azure AD / Entra ID | SSO for dashboard; service principals for API |
-| Data retention | PostgreSQL PITR | Point-in-time recovery, 35-day window |
-
----
+**Why Azure?**
+It is typically already in the client's stack, carries enterprise SLA and compliance certifications (ISO 27001, SOC 2), and Azure OpenAI supports private endpoint deployment — log data never leaves the client's network.
 
 ---
 
